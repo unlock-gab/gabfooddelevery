@@ -408,6 +408,7 @@ export default function RestaurantDashboard() {
       case "confirmed": return confirmed;
       case "preparing": return preparing;
       case "ready":     return ready;
+      case "delivered":  return delivered;
       case "history":   return allOrders.filter((o: any) => ["delivered","cancelled"].includes(o.status));
       default:          return [...driverAssigned, ...pendingConf, ...confirmed, ...preparing, ...ready];
     }
@@ -749,6 +750,7 @@ export default function RestaurantDashboard() {
                 { id: "confirmed", label: "À préparer",        count: confirmed.length },
                 { id: "preparing", label: "En préparation",    count: preparing.length },
                 { id: "ready",     label: "Prêtes",            count: ready.length },
+                { id: "delivered", label: "✓ Livrées",         count: delivered.length || null },
                 { id: "history",   label: "Historique",        count: null },
               ].map(f => (
                 <button
