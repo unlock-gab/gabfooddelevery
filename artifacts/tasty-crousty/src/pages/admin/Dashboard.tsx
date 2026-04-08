@@ -8,7 +8,7 @@ import { useGetAdminDashboard } from "@workspace/api-client-react";
 import {
   LayoutDashboard, ShoppingBag, Store, Truck, Users, MapPin,
   Radio, CheckSquare, Shield, CreditCard, Bell, Settings,
-  LogOut, ChevronRight, AlertTriangle, RefreshCw, Tag, MessageSquare, Percent,
+  LogOut, ChevronRight, AlertTriangle, RefreshCw, Tag, MessageSquare, Percent, BarChart2,
 } from "lucide-react";
 import { OverviewSection } from "./sections/OverviewSection";
 import { OrdersSection } from "./sections/OrdersSection";
@@ -24,11 +24,12 @@ import { SettingsSection } from "./sections/SettingsSection";
 import { PromoSection } from "./sections/PromoSection";
 import { DisputesSection } from "./sections/DisputesSection";
 import { CommissionSection } from "./sections/CommissionSection";
+import { StatisticsSection } from "./sections/StatisticsSection";
 
 type Section =
   | "overview" | "orders" | "restaurants" | "drivers" | "customers"
   | "dispatch" | "confirmation" | "fraud" | "payments" | "zones" | "settings"
-  | "promo" | "disputes" | "commission";
+  | "promo" | "disputes" | "commission" | "statistics";
 
 interface NavItem {
   id: Section;
@@ -71,6 +72,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
   {
     title: "Configuration",
     items: [
+      { id: "statistics", label: "Statistiques", icon: <BarChart2 className="w-4 h-4" /> },
       { id: "settings", label: "Paramètres", icon: <Settings className="w-4 h-4" /> },
     ],
   },
@@ -238,6 +240,7 @@ export default function AdminDashboard() {
             {activeSection === "promo" && <PromoSection />}
             {activeSection === "disputes" && <DisputesSection />}
             {activeSection === "commission" && <CommissionSection />}
+            {activeSection === "statistics" && <StatisticsSection />}
             {activeSection === "settings" && <SettingsSection />}
           </div>
         </ScrollArea>

@@ -94,6 +94,136 @@ router.get("/admin/analytics/orders", authenticate, requireRole("admin"), async 
   });
 });
 
+// FULL STATISTICS PAGE
+router.get("/admin/statistics", authenticate, requireRole("admin"), async (_req, res): Promise<void> => {
+  const now = new Date();
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const last7 = new Date(today); last7.setDate(last7.getDate() - 7);
+  const last30 = new Date(today); last30.setDate(last30.getDate() - 30);
+
+  // ── Orders global ──
+  const [ord] = await db.select({
+    total: count(),
+    delivered: sql<number>`count(*) filter (where ${ordersTable.status} = 'delivered')`,
+    cancelled: sql<number>`count(*) filter (where ${ordersTable.status} = 'cancelled')`,
+    todayTotal: sql<number>`count(*) filter (where ${ordersTable.createdAt} >= ${today})`,
+    todayDelivered: sql<number>`count(*) filter (where ${ordersTable.status} = 'delivered' and ${ordersTable.createdAt} >= ${today})`,
+    weekDelivered: sql<number>`count(*) filter (where ${ordersTable.status} = 'delivered' and ${ordersTable.createdAt} >= ${last7})`,
+    revenueTotal: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' then ${ordersTable.total}::numeric else 0 end),0)`,
+    revenueToday: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' and ${ordersTable.createdAt}>=${today} then ${ordersTable.total}::numeric else 0 end),0)`,
+    revenueWeek: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' and ${ordersTable.createdAt}>=${last7} then ${ordersTable.total}::numeric else 0 end),0)`,
+    revenueMonth: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' and ${ordersTable.createdAt}>=${last30} then ${ordersTable.total}::numeric else 0 end),0)`,
+    subtotalTotal: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' then ${ordersTable.subtotal}::numeric else 0 end),0)`,
+    deliveryFeesTotal: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' then ${ordersTable.deliveryFee}::numeric else 0 end),0)`,
+    avgOrderValue: sql<number>`coalesce(avg(case when ${ordersTable.status}='delivered' then ${ordersTable.total}::numeric end),0)`,
+  }).from(ordersTable);
+
+  // ── Orders by status ──
+  const statusRows = await db.select({ status: ordersTable.status, cnt: count() })
+    .from(ordersTable).groupBy(ordersTable.status);
+
+  // ── Revenue last 30 days (daily) ──
+  const dailyRevenue = await db.select({
+    day: sql<string>`date_trunc('day', ${ordersTable.createdAt})::date::text`,
+    revenue: sql<number>`coalesce(sum(${ordersTable.total}::numeric),0)`,
+    orders: sql<number>`count(*)`,
+  }).from(ordersTable)
+    .where(and(eq(ordersTable.status, "delivered"), sql`${ordersTable.createdAt} >= ${last30}`))
+    .groupBy(sql`date_trunc('day', ${ordersTable.createdAt})`)
+    .orderBy(sql`date_trunc('day', ${ordersTable.createdAt})`);
+
+  // ── Top restaurants ──
+  const topRestaurants = await db.select({
+    id: restaurantsTable.id,
+    name: restaurantsTable.name,
+    orderCount: sql<number>`count(*)`,
+    revenue: sql<number>`coalesce(sum(${ordersTable.total}::numeric),0)`,
+  }).from(ordersTable)
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .where(eq(ordersTable.status, "delivered"))
+    .groupBy(restaurantsTable.id, restaurantsTable.name)
+    .orderBy(sql`sum(${ordersTable.total}::numeric) desc`)
+    .limit(10);
+
+  // ── Top drivers ──
+  const topDrivers = await db.select({
+    id: driverProfilesTable.id,
+    name: usersTable.name,
+    deliveries: driverProfilesTable.totalDeliveries,
+    earningsTotal: driverProfilesTable.earningsTotal,
+    rating: driverProfilesTable.avgRating,
+  }).from(driverProfilesTable)
+    .leftJoin(usersTable, eq(driverProfilesTable.userId, usersTable.id))
+    .where(eq(driverProfilesTable.status, "approved"))
+    .orderBy(desc(driverProfilesTable.totalDeliveries))
+    .limit(10);
+
+  // ── Drivers summary ──
+  const [drvSummary] = await db.select({
+    total: count(),
+    approved: sql<number>`count(*) filter (where ${driverProfilesTable.status}='approved')`,
+    online: sql<number>`count(*) filter (where ${driverProfilesTable.isOnline}=true)`,
+    pending: sql<number>`count(*) filter (where ${driverProfilesTable.status}='pending')`,
+    totalEarnings: sql<number>`coalesce(sum(${driverProfilesTable.earningsTotal}::numeric),0)`,
+    totalDeliveries: sql<number>`coalesce(sum(${driverProfilesTable.totalDeliveries}),0)`,
+  }).from(driverProfilesTable);
+
+  // ── Restaurants summary ──
+  const [rstSummary] = await db.select({
+    total: count(),
+    approved: sql<number>`count(*) filter (where ${restaurantsTable.status}='approved')`,
+    open: sql<number>`count(*) filter (where ${restaurantsTable.isOpen}=true)`,
+    pending: sql<number>`count(*) filter (where ${restaurantsTable.status}='pending')`,
+  }).from(restaurantsTable);
+
+  // ── Customers summary ──
+  const [custSummary] = await db.select({
+    total: count(),
+    newToday: sql<number>`count(*) filter (where ${customerProfilesTable.createdAt} >= ${today})`,
+    newWeek: sql<number>`count(*) filter (where ${customerProfilesTable.createdAt} >= ${last7})`,
+  }).from(customerProfilesTable);
+
+  // ── Commission summary ──
+  const totalDriverCommission = Math.round(Number(drvSummary?.totalEarnings ?? 0) * 0.12);
+  const [restoRevRow] = await db.select({ total: sum(ordersTable.subtotal) })
+    .from(ordersTable).where(eq(ordersTable.status, "delivered"));
+  const totalRestoCommission = Math.round(Number(restoRevRow?.total ?? 0) * 0.12);
+
+  res.json({
+    orders: {
+      total: Number(ord.total),
+      delivered: Number(ord.delivered),
+      cancelled: Number(ord.cancelled),
+      todayTotal: Number(ord.todayTotal),
+      todayDelivered: Number(ord.todayDelivered),
+      weekDelivered: Number(ord.weekDelivered),
+      cancellationRate: Number(ord.total) > 0 ? Math.round(Number(ord.cancelled) / Number(ord.total) * 100) : 0,
+      avgOrderValue: Math.round(Number(ord.avgOrderValue)),
+    },
+    revenue: {
+      total: Math.round(Number(ord.revenueTotal)),
+      today: Math.round(Number(ord.revenueToday)),
+      week: Math.round(Number(ord.revenueWeek)),
+      month: Math.round(Number(ord.revenueMonth)),
+      subtotal: Math.round(Number(ord.subtotalTotal)),
+      deliveryFees: Math.round(Number(ord.deliveryFeesTotal)),
+    },
+    commission: {
+      drivers: totalDriverCommission,
+      restaurants: totalRestoCommission,
+      total: totalDriverCommission + totalRestoCommission,
+    },
+    byStatus: statusRows.map(s => ({ status: s.status, count: Number(s.cnt) })),
+    dailyRevenue: dailyRevenue.map(d => ({ day: d.day, revenue: Math.round(Number(d.revenue)), orders: Number(d.orders) })),
+    topRestaurants: topRestaurants.map(r => ({ id: r.id, name: r.name ?? "?", orders: Number(r.orderCount), revenue: Math.round(Number(r.revenue)) })),
+    topDrivers: topDrivers.map(d => ({ id: d.id, name: d.name ?? "?", deliveries: Number(d.deliveries), earnings: Math.round(Number(d.earningsTotal ?? 0)), rating: Number(d.rating ?? 0) })),
+    drivers: { total: Number(drvSummary.total), approved: Number(drvSummary.approved), online: Number(drvSummary.online), pending: Number(drvSummary.pending), totalDeliveries: Number(drvSummary.totalDeliveries) },
+    restaurants: { total: Number(rstSummary.total), approved: Number(rstSummary.approved), open: Number(rstSummary.open), pending: Number(rstSummary.pending) },
+    customers: { total: Number(custSummary.total), newToday: Number(custSummary.newToday), newWeek: Number(custSummary.newWeek) },
+  });
+});
+
 // FRAUD FLAGS
 router.get("/admin/fraud-flags", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
   const { severity, resolved } = req.query;
