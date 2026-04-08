@@ -360,6 +360,8 @@ router.get("/driver/stats", authenticate, requireRole("driver"), async (req, res
     failedConfirmations: profile?.failedConfirmations ?? 0,
     earningsToday: 0,
     earningsTotal: Number(profile?.earningsTotal ?? 0),
+    isOnline: profile?.isOnline ?? false,
+    availability: profile?.availability ?? "offline",
   });
 });
 

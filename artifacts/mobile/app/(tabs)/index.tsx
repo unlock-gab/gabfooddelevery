@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -20,8 +20,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
-import { useListRestaurants, useListOrders } from "@workspace/api-client-react";
+import { useListRestaurants, useListOrders, useGetAvailableMissions, useAcceptMission, useRejectMission, useGetDriverStats } from "@workspace/api-client-react";
 import { formatDA, getStatusLabel, getStatusColor } from "@/utils/format";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CATEGORIES = [
   "Tous", "Fast Food", "Pizza", "Algérien",
@@ -79,17 +80,59 @@ function RestaurantCard({ restaurant, colors }: { restaurant: any; colors: any }
 }
 
 function DriverHome({ colors, insets }: { colors: any; insets: any }) {
-  const [isOnline, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState<boolean | null>(null); // null = loading from server
   const [toggling, setToggling] = useState(false);
+  const qc = useQueryClient();
 
-  const { data: missionsData, isLoading, refetch } = useListOrders(
+  // Load initial online status from server
+  const { data: driverStats } = useGetDriverStats({ query: { staleTime: 0 } });
+  useEffect(() => {
+    if (driverStats && isOnline === null) {
+      setIsOnline((driverStats as any).isOnline ?? false);
+    }
+  }, [driverStats]);
+
+  // Available missions: orders in dispatch that specifically notified this driver
+  const { data: availableMissions = [], isLoading: loadingAvailable, refetch: refetchAvailable } = useGetAvailableMissions({
+    query: {
+      refetchInterval: isOnline ? 8000 : 0,
+      enabled: isOnline === true,
+    },
+  });
+
+  // Active missions: orders already assigned to this driver
+  const { data: activeData, isLoading: loadingActive, refetch: refetchActive } = useListOrders(
     {} as any,
-    { query: { refetchInterval: isOnline ? 15000 : 0, enabled: isOnline } }
+    { query: { refetchInterval: isOnline ? 10000 : 0, enabled: isOnline === true } }
   );
-  const orders = (missionsData as any)?.orders ?? [];
-  const active = orders.filter((o: any) =>
-    ["driver_assigned", "awaiting_customer_confirmation", "confirmed_for_preparation", "preparing", "ready_for_pickup", "picked_up", "on_the_way", "arriving_soon"].includes(o.status)
+  const activeOrders = ((activeData as any)?.orders ?? []).filter((o: any) =>
+    ["driver_assigned", "awaiting_customer_confirmation", "confirmed_for_preparation",
+     "preparing", "ready_for_pickup", "picked_up", "on_the_way", "arriving_soon"].includes(o.status)
   );
+
+  const accept = useAcceptMission();
+  const reject = useRejectMission();
+
+  const missions = availableMissions as any[];
+  const isLoading = loadingAvailable || loadingActive;
+
+  const refetchAll = () => { refetchAvailable(); refetchActive(); };
+
+  const handleAccept = async (orderId: number) => {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    accept.mutate(
+      { orderId },
+      {
+        onSuccess: () => { refetchAll(); },
+        onError: () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+      }
+    );
+  };
+
+  const handleReject = async (orderId: number) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    reject.mutate({ orderId }, { onSuccess: refetchAll });
+  };
 
   const toggleOnline = async (value: boolean) => {
     setToggling(true);
@@ -100,39 +143,34 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
         `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/driver/status`,
         {
           method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({ isOnline: value }),
         }
       );
       if (res.ok) {
         setIsOnline(value);
         await Haptics.notificationAsync(
-          value
-            ? Haptics.NotificationFeedbackType.Success
-            : Haptics.NotificationFeedbackType.Warning
+          value ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning
         );
-        if (value) refetch();
+        if (value) refetchAll();
       }
     } catch {}
     setToggling(false);
   };
 
+  // Still loading initial status
+  if (isOnline === null) {
+    return (
+      <View style={[ds.flex, ds.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <View style={[ds.flex, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View
-        style={[
-          ds.header,
-          {
-            paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16),
-            backgroundColor: colors.card,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
+      <View style={[ds.header, { paddingTop: insets.top + (Platform.OS === "web" ? 67 : 16), backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         <View style={ds.headerLeft}>
           <View style={[ds.statusDot, { backgroundColor: isOnline ? "#22C55E" : "#6B7280" }]} />
           <Text style={[ds.headerTitle, { color: colors.foreground }]}>Mes missions</Text>
@@ -143,7 +181,7 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
               value={isOnline}
               onValueChange={toggleOnline}
               trackColor={{ false: colors.border, true: "#22C55E" }}
-              thumbColor={isOnline ? "#fff" : "#fff"}
+              thumbColor="#fff"
               ios_backgroundColor={colors.border}
             />
           ) : (
@@ -152,30 +190,11 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
         </View>
       </View>
 
-      {/* Online/offline status banner */}
-      <View
-        style={[
-          ds.statusBanner,
-          {
-            backgroundColor: isOnline ? "#F0FDF4" : colors.muted,
-            borderBottomColor: isOnline ? "#BBF7D0" : colors.border,
-          },
-        ]}
-      >
-        <Ionicons
-          name={isOnline ? "radio-button-on" : "radio-button-off"}
-          size={14}
-          color={isOnline ? "#16A34A" : colors.mutedForeground}
-        />
-        <Text
-          style={[
-            ds.statusBannerText,
-            { color: isOnline ? "#15803D" : colors.mutedForeground },
-          ]}
-        >
-          {isOnline
-            ? "Vous êtes en ligne — les missions arrivent automatiquement"
-            : "Vous êtes hors ligne — activez pour recevoir des missions"}
+      {/* Status banner */}
+      <View style={[ds.statusBanner, { backgroundColor: isOnline ? "#F0FDF4" : colors.muted, borderBottomColor: isOnline ? "#BBF7D0" : colors.border }]}>
+        <Ionicons name={isOnline ? "radio-button-on" : "radio-button-off"} size={14} color={isOnline ? "#16A34A" : colors.mutedForeground} />
+        <Text style={[ds.statusBannerText, { color: isOnline ? "#15803D" : colors.mutedForeground }]}>
+          {isOnline ? "Vous êtes en ligne — les missions arrivent automatiquement" : "Vous êtes hors ligne — activez pour recevoir des missions"}
         </Text>
       </View>
 
@@ -187,74 +206,124 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
           </View>
           <Text style={[ds.emptyTitle, { color: colors.foreground }]}>Hors ligne</Text>
           <Text style={[ds.emptyDesc, { color: colors.mutedForeground }]}>
-            Activez le mode en ligne pour commencer à recevoir des missions de livraison.
+            Activez le mode en ligne pour commencer à recevoir des missions.
           </Text>
-          <TouchableOpacity
-            style={[ds.goOnlineBtn, { backgroundColor: "#22C55E" }]}
-            onPress={() => toggleOnline(true)}
-            disabled={toggling}
-          >
-            {toggling ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Ionicons name="power" size={18} color="#fff" />
-                <Text style={ds.goOnlineBtnText}>Passer en ligne</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      ) : isLoading ? (
-        <View style={ds.center}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      ) : active.length === 0 ? (
-        <View style={ds.emptyState}>
-          <Ionicons name="bicycle-outline" size={52} color={colors.mutedForeground} />
-          <Text style={[ds.emptyTitle, { color: colors.foreground }]}>Aucune mission active</Text>
-          <Text style={[ds.emptyDesc, { color: colors.mutedForeground }]}>
-            Les nouvelles missions apparaîtront ici automatiquement
-          </Text>
-          <TouchableOpacity onPress={() => refetch()} style={[ds.refreshBtn, { borderColor: colors.border }]}>
-            <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
-            <Text style={[ds.refreshBtnText, { color: colors.mutedForeground }]}>Actualiser</Text>
+          <TouchableOpacity style={[ds.goOnlineBtn, { backgroundColor: "#22C55E" }]} onPress={() => toggleOnline(true)} disabled={toggling}>
+            {toggling ? <ActivityIndicator color="#fff" /> : <><Ionicons name="power" size={18} color="#fff" /><Text style={ds.goOnlineBtnText}>Passer en ligne</Text></>}
           </TouchableOpacity>
         </View>
       ) : (
-        <FlatList
-          data={active}
-          keyExtractor={(item) => String(item.id)}
+        <ScrollView
+          style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 80 }}
-          scrollEnabled={!!active.length}
-          refreshControl={
-            <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />
-          }
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[ds.missionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => router.push(`/order/${item.id}` as any)}
-              activeOpacity={0.85}
-            >
-              <View style={[ds.missionStatus, { backgroundColor: `${getStatusColor(item.status)}20` }]}>
-                <Text style={[ds.missionStatusText, { color: getStatusColor(item.status) }]}>
-                  {getStatusLabel(item.status)}
+          refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetchAll} tintColor={colors.primary} />}
+        >
+          {/* ===== Available missions (pending acceptance) ===== */}
+          {missions.length > 0 && (
+            <View style={{ marginBottom: 24 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#F59E0B" }} />
+                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
+                  Nouvelle mission — Acceptez vite ! ({missions.length})
                 </Text>
               </View>
-              <Text style={[ds.missionRestaurant, { color: colors.foreground }]}>
-                {item.restaurantName ?? `Commande #${item.id}`}
-              </Text>
-              <Text style={[ds.missionAddress, { color: colors.mutedForeground }]} numberOfLines={1}>
-                {item.deliveryAddress}
-              </Text>
-              <View style={ds.missionFooter}>
-                <Text style={[ds.missionAmount, { color: colors.primary }]}>
-                  {formatDA(item.totalAmount)}
-                </Text>
-                <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-              </View>
-            </TouchableOpacity>
+              {missions.map((m: any) => (
+                <View key={m.orderId} style={[ds.missionCard, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }} numberOfLines={1}>
+                        {m.restaurantName}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: colors.mutedForeground, marginTop: 2 }} numberOfLines={1}>
+                        {m.restaurantAddress}
+                      </Text>
+                    </View>
+                    <View style={{ backgroundColor: "#F0A000", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                      <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
+                        {formatDA(m.estimatedEarnings)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                    <Ionicons name="location-outline" size={14} color={colors.mutedForeground} />
+                    <Text style={{ fontSize: 12, color: colors.mutedForeground, flex: 1 }} numberOfLines={1}>
+                      {m.deliveryAddress}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    <TouchableOpacity
+                      style={{ flex: 1, backgroundColor: "#EF4444", borderRadius: 10, paddingVertical: 10, alignItems: "center" }}
+                      onPress={() => handleReject(m.orderId)}
+                      disabled={reject.isPending}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Refuser</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={{ flex: 2, backgroundColor: "#22C55E", borderRadius: 10, paddingVertical: 10, alignItems: "center" }}
+                      onPress={() => handleAccept(m.orderId)}
+                      disabled={accept.isPending}
+                    >
+                      {accept.isPending ? <ActivityIndicator color="#fff" size="small" /> : (
+                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>✓ Accepter</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
           )}
-        />
+
+          {/* ===== Active missions (already accepted) ===== */}
+          {activeOrders.length > 0 && (
+            <View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22C55E" }} />
+                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
+                  En cours ({activeOrders.length})
+                </Text>
+              </View>
+              {activeOrders.map((item: any) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={[ds.missionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => router.push(`/order/${item.id}` as any)}
+                  activeOpacity={0.85}
+                >
+                  <View style={[ds.missionStatus, { backgroundColor: `${getStatusColor(item.status)}20` }]}>
+                    <Text style={[ds.missionStatusText, { color: getStatusColor(item.status) }]}>
+                      {getStatusLabel(item.status)}
+                    </Text>
+                  </View>
+                  <Text style={[ds.missionRestaurant, { color: colors.foreground }]}>
+                    {item.restaurantName ?? `Commande #${item.id}`}
+                  </Text>
+                  <Text style={[ds.missionAddress, { color: colors.mutedForeground }]} numberOfLines={1}>
+                    {item.deliveryAddress}
+                  </Text>
+                  <View style={ds.missionFooter}>
+                    <Text style={[ds.missionAmount, { color: colors.primary }]}>{formatDA(item.total)}</Text>
+                    <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Empty state */}
+          {missions.length === 0 && activeOrders.length === 0 && !isLoading && (
+            <View style={[ds.emptyState, { paddingTop: 60 }]}>
+              <Ionicons name="bicycle-outline" size={52} color={colors.mutedForeground} />
+              <Text style={[ds.emptyTitle, { color: colors.foreground }]}>Aucune mission active</Text>
+              <Text style={[ds.emptyDesc, { color: colors.mutedForeground }]}>
+                Les nouvelles missions apparaîtront ici automatiquement
+              </Text>
+              <TouchableOpacity onPress={refetchAll} style={[ds.refreshBtn, { borderColor: colors.border }]}>
+                <Feather name="refresh-cw" size={14} color={colors.mutedForeground} />
+                <Text style={[ds.refreshBtnText, { color: colors.mutedForeground }]}>Actualiser</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </ScrollView>
       )}
     </View>
   );
