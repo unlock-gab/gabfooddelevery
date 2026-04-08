@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, customerProfilesTable, driverProfilesTable, restaurantsTable } from "@workspace/db";
+import { usersTable, customerProfilesTable, driverProfilesTable, restaurantsTable, addressesTable, citiesTable, zonesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { hashPassword, comparePassword, signToken, authenticate } from "../lib/auth";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
@@ -35,6 +35,20 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   if (role === "customer") {
     await db.insert(customerProfilesTable).values({ userId: user.id, cityId: cityId ?? null });
+    if (cityId && zoneId) {
+      const [zone] = await db.select().from(zonesTable).where(eq(zonesTable.id, zoneId));
+      const [city] = await db.select().from(citiesTable).where(eq(citiesTable.id, cityId));
+      if (zone && city) {
+        await db.insert(addressesTable).values({
+          userId: user.id,
+          label: "Adresse principale",
+          fullAddress: `${zone.name}, ${city.name}`,
+          cityId,
+          zoneId,
+          isDefault: true,
+        });
+      }
+    }
   } else if (role === "driver") {
     await db.insert(driverProfilesTable).values({ userId: user.id, cityId: cityId ?? null, preferredZoneId: zoneId ?? null });
   } else if (role === "restaurant") {

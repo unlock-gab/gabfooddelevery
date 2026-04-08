@@ -37,7 +37,7 @@ const ROLE_CONFIG = {
     desc: "Accédez aux meilleurs restaurants d'Alger avec livraison synchronisée PrepLock™.",
     perks: ["Suivi de commande en temps réel", "PrepLock™ : repas toujours chaud", "Historique et récapitulatifs"],
     requireCity: true,
-    requireZone: false,
+    requireZone: true,
   },
   restaurant: {
     icon: Building2,
@@ -269,7 +269,7 @@ export default function Register() {
                         <FormItem>
                           <FormLabel className="font-semibold text-sm flex items-center gap-1.5">
                             <LayoutGrid className="w-3.5 h-3.5 text-primary" />
-                            Zone{activeRole === "driver" ? " de livraison préférée" : ""}
+                            {activeRole === "driver" ? "Zone de livraison préférée" : activeRole === "restaurant" ? "Zone du restaurant" : "Commune"}
                             <span className="text-muted-foreground font-normal ml-1">(optionnel)</span>
                           </FormLabel>
                           <Select
@@ -298,6 +298,11 @@ export default function Register() {
                               )}
                             </SelectContent>
                           </Select>
+                          {activeRole === "customer" && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Indiquez votre commune pour voir les restaurants qui livrent chez vous.
+                            </p>
+                          )}
                           {activeRole === "driver" && (
                             <p className="text-xs text-muted-foreground mt-1">
                               Vous pourrez livrer dans toute la wilaya. La zone est votre préférence par défaut.
