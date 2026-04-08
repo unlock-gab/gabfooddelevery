@@ -410,35 +410,6 @@ export default function Checkout() {
                     />
                     <p className="text-xs text-muted-foreground mt-1">Facultatif — le livreur vous contactera par téléphone si besoin.</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-sm font-semibold">Repère</Label>
-                      <Input
-                        placeholder="En face de..."
-                        value={form.deliveryLandmark}
-                        onChange={e => setForm(f => ({ ...f, deliveryLandmark: e.target.value }))}
-                        className="mt-1.5 h-11"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-sm font-semibold">Étage / Appartement</Label>
-                      <Input
-                        placeholder="2ème étage, appt 5"
-                        value={form.deliveryFloor}
-                        onChange={e => setForm(f => ({ ...f, deliveryFloor: e.target.value }))}
-                        className="mt-1.5 h-11"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-semibold">Instructions spéciales</Label>
-                    <Input
-                      placeholder="Code d'entrée, instructions pour le livreur..."
-                      value={form.deliveryInstructions}
-                      onChange={e => setForm(f => ({ ...f, deliveryInstructions: e.target.value }))}
-                      className="mt-1.5 h-11"
-                    />
-                  </div>
                   <div>
                     <Label className="text-sm font-semibold">Téléphone de contact <span className="text-red-500">*</span></Label>
                     <Input
