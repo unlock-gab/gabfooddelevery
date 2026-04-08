@@ -4,14 +4,25 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { useGetCart, useCreateOrder } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, MapPin, CreditCard, Truck, ChevronLeft } from "lucide-react";
+import { ShoppingCart, MapPin, CreditCard, Truck, ChevronLeft, Banknote, Wifi, Lock, Shield } from "lucide-react";
 import { Link } from "wouter";
+import { Skeleton } from "@/components/ui/skeleton";
+
+function SectionTitle({ icon: Icon, children }: { icon: any; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-5 pb-4 border-b">
+      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+        <Icon className="w-4 h-4 text-primary" />
+      </div>
+      <h2 className="font-bold text-base">{children}</h2>
+    </div>
+  );
+}
 
 export default function Checkout() {
   const [, setLocation] = useLocation();
@@ -25,48 +36,48 @@ export default function Checkout() {
     deliveryLandmark: "",
     deliveryFloor: "",
     deliveryInstructions: "",
-    deliveryPhone: user?.phone ?? "",
+    deliveryPhone: (user as any)?.phone ?? "",
     paymentMethod: "cash_on_delivery" as "cash_on_delivery" | "online",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cart || cart.items.length === 0) {
+    if (!cart || (cart as any).items.length === 0) {
       toast({ title: "Panier vide", variant: "destructive" });
       return;
     }
     if (!form.deliveryAddress.trim()) {
-      toast({ title: "Adresse de livraison requise", variant: "destructive" });
+      toast({ title: "Adresse de livraison requise", description: "Veuillez saisir votre adresse.", variant: "destructive" });
       return;
     }
 
     createOrder.mutate(
       {
         data: {
-          restaurantId: cart.restaurantId!,
+          restaurantId: (cart as any).restaurantId!,
           deliveryAddress: form.deliveryAddress,
           deliveryLandmark: form.deliveryLandmark || undefined,
           deliveryFloor: form.deliveryFloor || undefined,
           deliveryInstructions: form.deliveryInstructions || undefined,
           deliveryPhone: form.deliveryPhone || undefined,
           paymentMethod: form.paymentMethod,
-          items: cart.items.map(item => ({
+          items: (cart as any).items.map((item: any) => ({
             productId: item.productId,
             productName: item.productName,
             quantity: item.quantity,
             price: item.price * item.quantity,
             notes: item.notes ?? undefined,
           })),
-        }
+        },
       },
       {
-        onSuccess: (order) => {
-          toast({ title: "Commande passée !", description: `Commande ${order.orderNumber} créée` });
+        onSuccess: (order: any) => {
+          toast({ title: "Commande passée !", description: `Commande ${order.orderNumber} créée avec succès.` });
           setLocation(`/orders/${order.id}`);
         },
         onError: () => {
-          toast({ title: "Erreur", description: "Impossible de passer la commande", variant: "destructive" });
-        }
+          toast({ title: "Erreur", description: "Impossible de passer la commande. Réessayez.", variant: "destructive" });
+        },
       }
     );
   };
@@ -80,193 +91,234 @@ export default function Checkout() {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
-        <div className="container max-w-4xl py-8 text-center">Chargement...</div>
-      </div>
-    );
-  }
-
-  if (!cart || cart.items.length === 0) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <div className="container max-w-4xl py-20 text-center">
-          <ShoppingCart className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-          <h2 className="text-2xl font-bold mb-2">Votre panier est vide</h2>
-          <Link href="/restaurants"><Button className="mt-4">Explorer les restaurants</Button></Link>
+        <div className="container max-w-4xl py-10 space-y-4">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-4">
+              <Skeleton className="h-64 rounded-2xl" />
+              <Skeleton className="h-40 rounded-2xl" />
+            </div>
+            <Skeleton className="h-80 rounded-2xl" />
+          </div>
         </div>
       </div>
     );
   }
 
+  if (!cart || (cart as any).items.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col bg-muted/20">
+        <Navbar />
+        <div className="container max-w-md py-28 text-center">
+          <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mx-auto mb-5">
+            <ShoppingCart className="w-10 h-10 text-muted-foreground/40" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Votre panier est vide</h2>
+          <p className="text-muted-foreground mb-6 text-sm">Ajoutez des plats depuis un restaurant pour passer commande.</p>
+          <Link href="/restaurants"><Button className="font-semibold gap-1.5">Explorer les restaurants</Button></Link>
+        </div>
+      </div>
+    );
+  }
+
+  const cartData = cart as any;
+  const subtotal = cartData.items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
+  const deliveryFee = cartData.deliveryFee ?? 0;
+  const total = subtotal + deliveryFee;
+
   return (
-    <div className="min-h-screen flex flex-col bg-muted/20">
+    <div className="min-h-screen flex flex-col bg-gray-50/60">
       <Navbar />
-      <div className="container max-w-4xl py-6">
+      <div className="container max-w-4xl py-7">
         <Link href="/restaurants">
-          <Button variant="ghost" size="sm" className="mb-4 -ml-2">
-            <ChevronLeft className="w-4 h-4 mr-1" /> Continuer les achats
+          <Button variant="ghost" size="sm" className="mb-5 -ml-2 gap-1 text-sm">
+            <ChevronLeft className="w-4 h-4" /> Continuer mes achats
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold mb-6">Finaliser la commande</h1>
+        <h1 className="text-2xl font-extrabold mb-7">Finaliser la commande</h1>
 
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left: Form */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Delivery info */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <MapPin className="w-4 h-4 text-primary" /> Adresse de livraison
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <div className="lg:col-span-2 space-y-5">
+              {/* Delivery */}
+              <div className="bg-white rounded-2xl border p-6 shadow-sm">
+                <SectionTitle icon={MapPin}>Adresse de livraison</SectionTitle>
+                <div className="space-y-4">
                   <div>
-                    <Label htmlFor="address">Adresse *</Label>
+                    <Label className="text-sm font-semibold">Adresse <span className="text-red-500">*</span></Label>
                     <Input
-                      id="address"
-                      placeholder="123 Rue de la Paix, Alger"
+                      placeholder="123 Rue Didouche Mourad, Alger"
                       value={form.deliveryAddress}
                       onChange={e => setForm(f => ({ ...f, deliveryAddress: e.target.value }))}
                       required
-                      className="mt-1"
+                      className="mt-1.5 h-11"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="landmark">Repère</Label>
+                      <Label className="text-sm font-semibold">Repère</Label>
                       <Input
-                        id="landmark"
                         placeholder="En face de..."
                         value={form.deliveryLandmark}
                         onChange={e => setForm(f => ({ ...f, deliveryLandmark: e.target.value }))}
-                        className="mt-1"
+                        className="mt-1.5 h-11"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="floor">Étage / Appartement</Label>
+                      <Label className="text-sm font-semibold">Étage / Appartement</Label>
                       <Input
-                        id="floor"
-                        placeholder="3ème étage, appt 12"
+                        placeholder="2ème étage, appt 5"
                         value={form.deliveryFloor}
                         onChange={e => setForm(f => ({ ...f, deliveryFloor: e.target.value }))}
-                        className="mt-1"
+                        className="mt-1.5 h-11"
                       />
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="instructions">Instructions de livraison</Label>
+                    <Label className="text-sm font-semibold">Instructions spéciales</Label>
                     <Input
-                      id="instructions"
-                      placeholder="Code d'entrée, instructions spéciales..."
+                      placeholder="Code d'entrée, instructions pour le livreur..."
                       value={form.deliveryInstructions}
                       onChange={e => setForm(f => ({ ...f, deliveryInstructions: e.target.value }))}
-                      className="mt-1"
+                      className="mt-1.5 h-11"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="phone">Téléphone pour la livraison</Label>
+                    <Label className="text-sm font-semibold">Téléphone de contact</Label>
                     <Input
-                      id="phone"
                       type="tel"
-                      placeholder="+213 ..."
+                      placeholder="+213 5XX XXX XXX"
                       value={form.deliveryPhone}
                       onChange={e => setForm(f => ({ ...f, deliveryPhone: e.target.value }))}
-                      className="mt-1"
+                      className="mt-1.5 h-11"
                     />
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
 
               {/* Payment */}
-              <Card>
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <CreditCard className="w-4 h-4 text-primary" /> Mode de paiement
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {(["cash_on_delivery", "online"] as const).map(method => (
+              <div className="bg-white rounded-2xl border p-6 shadow-sm">
+                <SectionTitle icon={CreditCard}>Mode de paiement</SectionTitle>
+                <div className="space-y-3">
+                  {([
+                    {
+                      value: "cash_on_delivery",
+                      label: "Paiement à la livraison",
+                      desc: "Espèces ou carte à la réception",
+                      icon: Banknote,
+                    },
+                    {
+                      value: "online",
+                      label: "Paiement en ligne",
+                      desc: "Carte bancaire sécurisée (CIB, Dahabia...)",
+                      icon: Wifi,
+                    },
+                  ] as const).map((method) => (
                     <label
-                      key={method}
-                      className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${form.paymentMethod === method ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"}`}
+                      key={method.value}
+                      className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                        form.paymentMethod === method.value
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border hover:border-primary/30 hover:bg-muted/30"
+                      }`}
                     >
                       <input
-                        type="radio"
-                        name="payment"
-                        value={method}
-                        checked={form.paymentMethod === method}
-                        onChange={() => setForm(f => ({ ...f, paymentMethod: method }))}
+                        type="radio" name="payment" value={method.value}
+                        checked={form.paymentMethod === method.value}
+                        onChange={() => setForm(f => ({ ...f, paymentMethod: method.value }))}
                         className="sr-only"
                       />
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${form.paymentMethod === method ? "border-primary" : "border-muted-foreground"}`}>
-                        {form.paymentMethod === method && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        form.paymentMethod === method.value ? "border-primary" : "border-muted-foreground/40"
+                      }`}>
+                        {form.paymentMethod === method.value && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                      </div>
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                        form.paymentMethod === method.value ? "bg-primary/10" : "bg-muted"
+                      }`}>
+                        <method.icon className={`w-4.5 h-4.5 ${form.paymentMethod === method.value ? "text-primary" : "text-muted-foreground"}`} />
                       </div>
                       <div>
-                        <div className="font-medium text-sm">
-                          {method === "cash_on_delivery" ? "Paiement à la livraison" : "Paiement en ligne"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {method === "cash_on_delivery" ? "Espèces ou carte à la livraison" : "Carte bancaire sécurisée"}
-                        </div>
+                        <div className="font-semibold text-sm">{method.label}</div>
+                        <div className="text-xs text-muted-foreground">{method.desc}</div>
                       </div>
                     </label>
                   ))}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
 
-            {/* Right: Order summary */}
+            {/* Right: Summary */}
             <div>
-              <Card className="sticky top-4">
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <ShoppingCart className="w-4 h-4 text-primary" /> Votre commande
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {cart.restaurantName && (
-                    <p className="text-sm font-medium text-muted-foreground border-b pb-2">{cart.restaurantName}</p>
+              <div className="bg-white rounded-2xl border shadow-sm sticky top-24 overflow-hidden">
+                <div className="px-5 py-4 border-b bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <ShoppingCart className="w-4 h-4 text-primary" />
+                    <h3 className="font-bold text-sm">Votre commande</h3>
+                    <span className="ml-auto text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                      {cartData.items.length} article{cartData.items.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-5 space-y-4">
+                  {cartData.restaurantName && (
+                    <p className="text-sm font-semibold text-muted-foreground">{cartData.restaurantName}</p>
                   )}
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {cart.items.map(item => (
+
+                  <div className="space-y-2 max-h-44 overflow-y-auto scrollbar-none">
+                    {cartData.items.map((item: any) => (
                       <div key={item.id} className="flex justify-between text-sm">
-                        <span className="flex-1 truncate">{item.quantity}× {item.productName}</span>
-                        <span className="font-medium ml-2">{(item.price * item.quantity).toFixed(2)} €</span>
+                        <span className="flex-1 truncate text-muted-foreground">
+                          <span className="text-foreground font-medium">{item.quantity}×</span> {item.productName}
+                        </span>
+                        <span className="font-semibold ml-2 tabular-nums">{(item.price * item.quantity).toFixed(2)} DA</span>
                       </div>
                     ))}
                   </div>
+
                   <Separator />
-                  <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Sous-total</span>
-                      <span>{cart.subtotal.toFixed(2)} €</span>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Sous-total</span>
+                      <span className="tabular-nums">{subtotal.toFixed(2)} DA</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Livraison</span>
-                      <span>{cart.deliveryFee.toFixed(2)} €</span>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Frais de livraison</span>
+                      <span className="tabular-nums">{deliveryFee > 0 ? `${deliveryFee.toFixed(2)} DA` : "Gratuite"}</span>
                     </div>
                     <Separator />
-                    <div className="flex justify-between font-bold text-base">
+                    <div className="flex justify-between font-bold text-base pt-1">
                       <span>Total</span>
-                      <span className="text-primary">{cart.total.toFixed(2)} €</span>
+                      <span className="text-primary tabular-nums">{total.toFixed(2)} DA</span>
                     </div>
                   </div>
 
-                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mt-2">
-                    <div className="flex items-start gap-2">
-                      <Truck className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                      <p className="text-xs text-blue-700">
-                        Votre commande sera préparée uniquement après qu'un livreur vous confirme et confirme la commande.
+                  <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
+                    <div className="flex items-start gap-2.5">
+                      <Lock className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                      <p className="text-xs text-blue-700 leading-relaxed">
+                        <strong>PrepLock™</strong> — Votre commande ne sera préparée qu'après confirmation de votre livreur. Repas toujours chaud.
                       </p>
                     </div>
                   </div>
 
-                  <Button type="submit" className="w-full h-11 text-base mt-2" disabled={createOrder.isPending}>
-                    {createOrder.isPending ? "Traitement..." : "Confirmer la commande"}
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-semibold rounded-xl gap-2"
+                    disabled={createOrder.isPending}
+                  >
+                    <Shield className="w-4 h-4" />
+                    {createOrder.isPending ? "Traitement..." : `Confirmer — ${total.toFixed(2)} DA`}
                   </Button>
-                </CardContent>
-              </Card>
+
+                  <p className="text-xs text-center text-muted-foreground">
+                    Commande sécurisée · Annulation possible avant préparation
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </form>

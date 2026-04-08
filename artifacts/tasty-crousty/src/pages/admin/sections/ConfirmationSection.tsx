@@ -107,7 +107,7 @@ export function ConfirmationSection() {
                       )}
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-slate-800">{Number(order.total).toFixed(2)} €</p>
+                      <p className="font-bold text-slate-800">{Number(order.total).toFixed(2)} DA</p>
                       <p className="text-xs text-slate-400 mt-0.5">{order.paymentMethod === "cash_on_delivery" ? "Espèces" : "En ligne"}</p>
                     </div>
                   </div>
@@ -143,7 +143,7 @@ export function ConfirmationSection() {
                       <p className="text-xs text-slate-500 truncate">{order.deliveryAddress}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-slate-800">{Number(order.total).toFixed(2)} €</p>
+                      <p className="font-bold text-slate-800">{Number(order.total).toFixed(2)} DA</p>
                     </div>
                   </div>
                 </CardContent>
@@ -181,7 +181,7 @@ export function ConfirmationSection() {
                       )}
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="font-bold text-slate-800">{Number(order.total).toFixed(2)} €</p>
+                      <p className="font-bold text-slate-800">{Number(order.total).toFixed(2)} DA</p>
                       <p className="text-xs text-red-500 mt-0.5 font-medium">Intervention requise</p>
                     </div>
                   </div>

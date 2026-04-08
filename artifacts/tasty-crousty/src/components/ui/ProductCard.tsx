@@ -29,7 +29,7 @@ export function ProductCard({ product, onAdd }: ProductCardProps) {
           )}
         </div>
         <div className="flex items-center justify-between mt-auto pt-2">
-          <span className="font-bold text-primary">{product.price.toFixed(2)} €</span>
+          <span className="font-bold text-primary">{product.price.toFixed(2)} DA</span>
           <Button 
             size="sm" 
             variant="secondary" 

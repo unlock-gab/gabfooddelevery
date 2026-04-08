@@ -2,7 +2,22 @@
 
 ## Overview
 
-Premium food delivery SaaS for Algeria. French-first UI with Arabic RTL support. Four distinct user interfaces: Customer website, Restaurant dashboard, Driver dashboard (mobile-first), and Admin panel.
+Premium food delivery SaaS for Algeria. French-first UI with Arabic RTL support (Cairo/Inter fonts). Four distinct user interfaces: Customer website, Restaurant dashboard, Driver dashboard (mobile-first), and Admin panel. Currency displayed as "DA" (Algerian Dinar) throughout all interfaces.
+
+## Step 7 UI Polish (Completed)
+
+Premium design system applied across all interfaces:
+- **CSS**: Custom properties with enhanced shadows, `chip`/`chip-active`/`chip-inactive` utilities, `card-hover`, `gradient-text`, `fade-in-up-N`, `scrollbar-none`, `status-pulse`, `glass`, `tabular-nums` — Inter + Cairo fonts via Google Fonts
+- **Home**: Gradient hero with ambient blobs, PrepLock trust badge, category chips, featured restaurants grid, How It Works with live-style status mockup, value props, partner CTAs, dark footer
+- **Navbar**: Active underline indicator per route, UtensilsCrossed icon logo, glass morphism, mobile hamburger
+- **Login**: Split-panel (dark branding left + form right), demo quick-fill buttons for all 4 roles
+- **Register**: Split-panel with dynamic role description that changes per selected tab
+- **Restaurants**: Sticky search+filter bar, category chip filters, restaurant cards with gradient overlay + rating badge
+- **RestaurantDetail**: Currency fixed to DA, smooth card hover
+- **Checkout**: Premium form cards with SectionTitle icons, PrepLock info box, DA totals, security footer
+- **Orders**: Animated StatusPill with status-aware colors and dot pulse, improved empty states
+- **OrderTracking**: Redesigned timeline with icon-in-dot design, green completed steps, 17-status coverage, DA totals
+- **Currency**: All "€" replaced with "DA" across customer, restaurant, driver, and admin interfaces
 
 ## Critical Business Rule
 

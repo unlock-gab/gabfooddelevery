@@ -221,7 +221,7 @@ export function OrdersSection() {
                       {STATUS_LABELS[order.status] ?? order.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">{Number(order.total).toFixed(2)} €</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">{Number(order.total).toFixed(2)} DA</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs font-medium ${order.paymentStatus === "paid" ? "text-green-600" : "text-amber-600"}`}>
                       {order.paymentMethod === "cash_on_delivery" ? "Espèces" : "En ligne"}
@@ -315,22 +315,22 @@ export function OrdersSection() {
                   {orderDetail.items?.map(item => (
                     <div key={item.id} className="flex justify-between text-sm">
                       <span className="text-slate-700">{item.quantity}× {item.productName}</span>
-                      <span className="font-medium text-slate-800">{(item.price * item.quantity).toFixed(2)} €</span>
+                      <span className="font-medium text-slate-800">{(item.price * item.quantity).toFixed(2)} DA</span>
                     </div>
                   ))}
                 </div>
                 <Separator className="my-2" />
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Sous-total</span>
-                  <span>{Number(orderDetail.subtotal).toFixed(2)} €</span>
+                  <span>{Number(orderDetail.subtotal).toFixed(2)} DA</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Livraison</span>
-                  <span>{Number(orderDetail.deliveryFee).toFixed(2)} €</span>
+                  <span>{Number(orderDetail.deliveryFee).toFixed(2)} DA</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold mt-1">
                   <span>Total</span>
-                  <span className="text-primary">{Number(orderDetail.total).toFixed(2)} €</span>
+                  <span className="text-primary">{Number(orderDetail.total).toFixed(2)} DA</span>
                 </div>
               </div>
 

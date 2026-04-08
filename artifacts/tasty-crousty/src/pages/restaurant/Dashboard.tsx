@@ -102,7 +102,7 @@ function OrderCard({ order, onAction }: { order: any; onAction: () => void }) {
           {order.items?.map((item: any) => (
             <div key={item.id} className="flex justify-between text-xs text-muted-foreground">
               <span>{item.quantity}× {item.productName}</span>
-              <span>{(item.price * item.quantity).toFixed(2)} €</span>
+              <span>{(item.price * item.quantity).toFixed(2)} DA</span>
             </div>
           ))}
         </div>
@@ -110,7 +110,7 @@ function OrderCard({ order, onAction }: { order: any; onAction: () => void }) {
         <Separator className="mb-3" />
 
         <div className="flex items-center justify-between">
-          <span className="font-bold text-primary">{Number(order.total).toFixed(2)} €</span>
+          <span className="font-bold text-primary">{Number(order.total).toFixed(2)} DA</span>
           <div className="flex gap-2">
             {order.status === "confirmed_for_preparation" && (
               <Button size="sm" onClick={handleStartPrepare} disabled={startPreparing.isPending} className="text-xs h-7">

@@ -1,15 +1,13 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useListOrders } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import {
   Clock, ChevronRight, Package, Truck, CheckCircle,
-  AlertCircle, ShoppingBag, RefreshCw, Star
+  AlertCircle, ShoppingBag, RefreshCw
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -17,38 +15,38 @@ const STATUS_LABELS: Record<string, string> = {
   pending_dispatch: "Recherche livreur",
   dispatching_driver: "Dispatch",
   driver_assigned: "Livreur assigné",
-  awaiting_customer_confirmation: "📞 Confirmation attendue",
-  needs_update: "⚠️ Correction requise",
-  confirmation_failed: "❌ Injoignable",
-  confirmed_for_preparation: "✅ Confirmé",
-  preparing: "🍳 En préparation",
-  ready_for_pickup: "🛍️ Prêt pour collecte",
-  picked_up: "📦 Collecté",
-  on_the_way: "🛵 En route",
-  arriving_soon: "📍 Arrivée imminente",
-  delivered: "✅ Livré",
-  cancelled: "❌ Annulé",
-  failed: "❌ Échoué",
+  awaiting_customer_confirmation: "Confirmation attendue",
+  needs_update: "Correction requise",
+  confirmation_failed: "Client injoignable",
+  confirmed_for_preparation: "Confirmé",
+  preparing: "En préparation",
+  ready_for_pickup: "Prêt pour collecte",
+  picked_up: "Collecté",
+  on_the_way: "En route",
+  arriving_soon: "Arrivée imminente",
+  delivered: "Livré",
+  cancelled: "Annulé",
+  failed: "Échoué",
   refunded: "Remboursé",
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  pending_dispatch: "bg-blue-100 text-blue-800",
-  dispatching_driver: "bg-blue-100 text-blue-800",
-  driver_assigned: "bg-indigo-100 text-indigo-800",
-  awaiting_customer_confirmation: "bg-amber-100 text-amber-800",
-  needs_update: "bg-orange-100 text-orange-800 font-semibold",
-  confirmation_failed: "bg-red-100 text-red-800",
-  confirmed_for_preparation: "bg-green-100 text-green-800",
-  preparing: "bg-purple-100 text-purple-800",
-  ready_for_pickup: "bg-indigo-100 text-indigo-800",
-  picked_up: "bg-indigo-100 text-indigo-800",
-  on_the_way: "bg-blue-100 text-blue-800",
-  arriving_soon: "bg-teal-100 text-teal-800",
-  delivered: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-800",
-  failed: "bg-red-100 text-red-800",
-  refunded: "bg-gray-100 text-gray-700",
+const STATUS_STYLES: Record<string, { pill: string; dot: string }> = {
+  pending_dispatch: { pill: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" },
+  dispatching_driver: { pill: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" },
+  driver_assigned: { pill: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" },
+  awaiting_customer_confirmation: { pill: "bg-amber-50 text-amber-800 border-amber-200", dot: "bg-amber-500" },
+  needs_update: { pill: "bg-orange-50 text-orange-800 border-orange-300 font-semibold", dot: "bg-orange-500" },
+  confirmation_failed: { pill: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-500" },
+  confirmed_for_preparation: { pill: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" },
+  preparing: { pill: "bg-purple-50 text-purple-700 border-purple-200", dot: "bg-purple-500" },
+  ready_for_pickup: { pill: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" },
+  picked_up: { pill: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" },
+  on_the_way: { pill: "bg-blue-50 text-blue-700 border-blue-200", dot: "bg-blue-500" },
+  arriving_soon: { pill: "bg-teal-50 text-teal-700 border-teal-200", dot: "bg-teal-500" },
+  delivered: { pill: "bg-green-50 text-green-700 border-green-200", dot: "bg-green-500" },
+  cancelled: { pill: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-400" },
+  failed: { pill: "bg-red-50 text-red-700 border-red-200", dot: "bg-red-400" },
+  refunded: { pill: "bg-gray-100 text-gray-600 border-gray-200", dot: "bg-gray-400" },
 };
 
 const ACTIVE_STATUSES = [
@@ -58,26 +56,37 @@ const ACTIVE_STATUSES = [
   "picked_up", "on_the_way", "arriving_soon",
 ];
 
+function StatusPill({ status }: { status: string }) {
+  const style = STATUS_STYLES[status] ?? { pill: "bg-gray-100 text-gray-600 border-gray-200", dot: "bg-gray-400" };
+  const isActive = ACTIVE_STATUSES.includes(status) && status !== "cancelled" && status !== "failed";
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${style.pill}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${style.dot} ${isActive ? "animate-pulse" : ""}`} />
+      {STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
 function OrderRow({ order }: { order: any }) {
   const isActive = ACTIVE_STATUSES.includes(order.status);
   const needsAction = order.status === "needs_update";
+  const isDelivered = order.status === "delivered";
 
   return (
     <Link href={`/orders/${order.id}`}>
       <div className={`flex gap-4 p-4 rounded-2xl border transition-all hover:shadow-md cursor-pointer ${
-        needsAction ? "border-orange-300 bg-orange-50" :
-        isActive ? "border-primary/20 bg-primary/5" :
-        order.status === "delivered" ? "bg-white border-gray-200" :
-        "bg-white border-gray-200 opacity-75"
+        needsAction ? "border-orange-300 bg-orange-50/50" :
+        isActive ? "border-primary/20 bg-primary/3" :
+        isDelivered ? "bg-white border-gray-200" :
+        "bg-white border-gray-200 opacity-80"
       }`}>
-        {/* Icon */}
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-          order.status === "delivered" ? "bg-green-100" :
+        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+          isDelivered ? "bg-green-100" :
           needsAction ? "bg-orange-100" :
           isActive ? "bg-primary/10" :
           "bg-gray-100"
         }`}>
-          {order.status === "delivered" ? (
+          {isDelivered ? (
             <CheckCircle className="w-5 h-5 text-green-600" />
           ) : needsAction ? (
             <AlertCircle className="w-5 h-5 text-orange-600" />
@@ -88,41 +97,45 @@ function OrderRow({ order }: { order: any }) {
           )}
         </div>
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <div>
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <div className="min-w-0">
               <div className="font-bold text-sm">{order.orderNumber}</div>
-              <div className="text-xs text-muted-foreground">{order.restaurantName}</div>
+              <div className="text-xs text-muted-foreground truncate">{order.restaurantName}</div>
             </div>
-            <span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_COLORS[order.status] ?? "bg-gray-100 text-gray-700"}`}>
-              {STATUS_LABELS[order.status] ?? order.status}
-            </span>
+            <StatusPill status={order.status} />
           </div>
 
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 {new Date(order.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
               </span>
-              <span>{order.items?.length ?? 0} article{(order.items?.length ?? 0) !== 1 ? "s" : ""}</span>
+              {order.items?.length > 0 && (
+                <span>{order.items.length} article{order.items.length !== 1 ? "s" : ""}</span>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm text-primary">{Number(order.total).toFixed(2)} €</span>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              <span className="font-bold text-sm text-primary tabular-nums">{Number(order.total).toFixed(2)} DA</span>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
             </div>
           </div>
 
-          {/* Action prompt */}
           {needsAction && (
-            <div className="mt-2 text-xs font-semibold text-orange-700 flex items-center gap-1">
-              <AlertCircle className="w-3 h-3" /> Votre adresse doit être corrigée — Appuyez pour corriger
+            <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-orange-700">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Votre adresse doit être corrigée — Appuyez pour corriger
             </div>
           )}
-          {isActive && !needsAction && order.status === "awaiting_customer_confirmation" && (
-            <div className="mt-2 text-xs font-medium text-amber-700">
+          {order.status === "awaiting_customer_confirmation" && (
+            <div className="mt-2 text-xs font-medium text-amber-700 flex items-center gap-1">
               📞 Votre livreur va vous appeler — restez disponible
+            </div>
+          )}
+          {order.status === "on_the_way" && (
+            <div className="mt-2 text-xs font-medium text-blue-600 flex items-center gap-1">
+              🛵 Votre repas est en route !
             </div>
           )}
         </div>
@@ -134,11 +147,14 @@ function OrderRow({ order }: { order: any }) {
 function SkeletonRow() {
   return (
     <div className="flex gap-4 p-4 rounded-2xl border bg-white">
-      <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
-      <div className="flex-1 space-y-2">
-        <Skeleton className="h-4 w-1/2" />
-        <Skeleton className="h-3 w-3/4" />
-        <Skeleton className="h-3 w-1/3" />
+      <Skeleton className="w-11 h-11 rounded-xl shrink-0" />
+      <div className="flex-1 space-y-2.5">
+        <div className="flex justify-between">
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+        </div>
+        <Skeleton className="h-3 w-2/3" />
+        <Skeleton className="h-3 w-1/2" />
       </div>
     </div>
   );
@@ -154,34 +170,35 @@ export default function Orders() {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="container py-20 text-center max-w-md">
-          <ShoppingBag className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
+        <div className="container py-28 text-center max-w-md">
+          <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mx-auto mb-5">
+            <ShoppingBag className="w-10 h-10 text-muted-foreground/40" />
+          </div>
           <h2 className="text-2xl font-bold mb-2">Connexion requise</h2>
-          <p className="text-muted-foreground mb-4">Connectez-vous pour voir vos commandes.</p>
-          <Link href="/auth/login"><Button>Se connecter</Button></Link>
+          <p className="text-muted-foreground mb-5 text-sm">Connectez-vous pour accéder à vos commandes.</p>
+          <Link href="/auth/login"><Button className="font-semibold">Se connecter</Button></Link>
         </div>
       </div>
     );
   }
 
-  const orders = data?.orders ?? [];
+  const orders = (data as any)?.orders ?? [];
   const active = orders.filter((o: any) => ACTIVE_STATUSES.includes(o.status));
   const past = orders.filter((o: any) => !ACTIVE_STATUSES.includes(o.status));
   const needsAction = active.filter((o: any) => o.status === "needs_update");
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50/60">
       <Navbar />
-      <div className="container max-w-2xl py-6 space-y-6 pb-12">
-        {/* Header */}
+      <div className="container max-w-2xl py-7 space-y-6 pb-14">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Mes commandes</h1>
+            <h1 className="text-2xl font-extrabold">Mes commandes</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isLoading ? "Chargement..." : `${orders.length} commande${orders.length !== 1 ? "s" : ""}`}
             </p>
           </div>
-          <Button variant="ghost" size="sm" className="gap-1 text-xs" onClick={() => refetch()}>
+          <Button variant="ghost" size="sm" className="gap-1.5 text-xs font-medium" onClick={() => refetch()}>
             <RefreshCw className="w-3.5 h-3.5" /> Actualiser
           </Button>
         </div>
@@ -191,24 +208,25 @@ export default function Orders() {
             {[...Array(4)].map((_, i) => <SkeletonRow key={i} />)}
           </div>
         ) : orders.length === 0 ? (
-          <div className="text-center py-24">
-            <ShoppingBag className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
+          <div className="text-center py-28">
+            <div className="w-20 h-20 rounded-3xl bg-muted flex items-center justify-center mx-auto mb-5">
+              <ShoppingBag className="w-10 h-10 text-muted-foreground/30" />
+            </div>
             <h2 className="text-xl font-bold mb-2">Aucune commande</h2>
-            <p className="text-muted-foreground mb-5">Votre historique de commandes apparaîtra ici.</p>
+            <p className="text-muted-foreground mb-6 text-sm">Votre historique apparaîtra ici après votre première commande.</p>
             <Link href="/restaurants">
-              <Button className="gap-1">
+              <Button className="gap-1.5 font-semibold">
                 <ShoppingBag className="w-4 h-4" /> Découvrir les restaurants
               </Button>
             </Link>
           </div>
         ) : (
           <>
-            {/* Action required */}
             {needsAction.length > 0 && (
               <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <AlertCircle className="w-4 h-4 text-orange-600" />
-                  <h2 className="font-bold text-sm text-orange-700">Action requise</h2>
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <div className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
+                  <h2 className="font-bold text-sm text-orange-700">Action requise ({needsAction.length})</h2>
                 </div>
                 <div className="space-y-3">
                   {needsAction.map((o: any) => <OrderRow key={o.id} order={o} />)}
@@ -216,12 +234,11 @@ export default function Orders() {
               </section>
             )}
 
-            {/* Active orders */}
             {active.length > 0 && (
               <section>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  <h2 className="font-bold text-sm text-primary">En cours ({active.length})</h2>
+                <div className="flex items-center gap-2 mb-3 px-1">
+                  <div className="w-2.5 h-2.5 rounded-full bg-primary status-pulse" />
+                  <h2 className="font-bold text-sm text-primary">En cours — {active.length} commande{active.length !== 1 ? "s" : ""}</h2>
                 </div>
                 <div className="space-y-3">
                   {active.filter((o: any) => o.status !== "needs_update").map((o: any) => <OrderRow key={o.id} order={o} />)}
@@ -229,11 +246,10 @@ export default function Orders() {
               </section>
             )}
 
-            {/* History */}
             {past.length > 0 && (
               <section>
-                {active.length > 0 && <Separator className="mb-5" />}
-                <h2 className="font-bold text-sm text-muted-foreground mb-3 uppercase tracking-wider">Historique</h2>
+                {active.length > 0 && <Separator className="mb-6" />}
+                <h2 className="font-bold text-xs text-muted-foreground mb-3 uppercase tracking-widest px-1">Historique</h2>
                 <div className="space-y-3">
                   {past.map((o: any) => <OrderRow key={o.id} order={o} />)}
                 </div>

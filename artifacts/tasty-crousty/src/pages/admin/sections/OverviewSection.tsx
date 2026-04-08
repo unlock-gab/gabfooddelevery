@@ -133,8 +133,8 @@ export function OverviewSection({ dashboard, onNavigate }: {
         <KpiCard title="Livrées aujourd'hui" value={dashboard.deliveredToday} sub="commandes" icon={<CheckCircle className="w-4 h-4" />} color="text-green-600" />
         <KpiCard
           title="Revenu du jour"
-          value={`${Number(dashboard.revenueToday).toFixed(0)} €`}
-          sub={`Total: ${Number(dashboard.revenueTotal).toFixed(0)} €`}
+          value={`${Number(dashboard.revenueToday).toFixed(0)} DA`}
+          sub={`Total: ${Number(dashboard.revenueTotal).toFixed(0)} DA`}
           icon={<TrendingUp className="w-4 h-4" />}
           color="text-emerald-600"
         />
@@ -197,7 +197,7 @@ export function OverviewSection({ dashboard, onNavigate }: {
                     <Tooltip
                       contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }}
                       labelFormatter={d => new Date(d).toLocaleDateString("fr-FR")}
-                      formatter={(v: number, n: string) => [v, n === "count" ? "Commandes" : "Revenu €"]}
+                      formatter={(v: number, n: string) => [v, n === "count" ? "Commandes" : "Revenu DA"]}
                     />
                     <Area type="monotone" dataKey="count" stroke="#f59e0b" strokeWidth={2} fill="url(#gradCount)" name="count" />
                   </AreaChart>

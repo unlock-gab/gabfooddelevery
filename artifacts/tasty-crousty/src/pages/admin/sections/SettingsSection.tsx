@@ -32,7 +32,7 @@ const SETTINGS_GROUPS: SettingsGroup[] = [
     title: "Livraison",
     icon: <Clock className="w-4 h-4 text-purple-500" />,
     fields: [
-      { key: "defaultDeliveryFee", label: "Frais de livraison par défaut", description: "Appliqués si le restaurant ne définit pas les siens", type: "number", unit: "€" },
+      { key: "defaultDeliveryFee", label: "Frais de livraison par défaut", description: "Appliqués si le restaurant ne définit pas les siens", type: "number", unit: "DA" },
     ],
   },
   {

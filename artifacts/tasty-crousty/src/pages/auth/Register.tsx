@@ -6,19 +6,13 @@ import * as z from "zod";
 import { useRegister } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ShoppingBag, Building2, Truck, UtensilsCrossed, ChevronRight } from "lucide-react";
 
 const registerSchema = z.object({
   name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
@@ -28,21 +22,40 @@ const registerSchema = z.object({
   role: z.enum(["customer", "restaurant", "driver"]),
 });
 
+const ROLE_CONFIG = {
+  customer: {
+    icon: ShoppingBag,
+    label: "Client",
+    headline: "Commandez en toute confiance",
+    desc: "Accédez aux meilleurs restaurants d'Alger avec livraison synchronisée PrepLock™.",
+    perks: ["Suivi de commande en temps réel", "PrepLock™ : repas toujours chaud", "Historique et récapitulatifs"],
+  },
+  restaurant: {
+    icon: Building2,
+    label: "Restaurant",
+    headline: "Boostez votre activité",
+    desc: "Dashboard professionnel avec statistiques en temps réel et gestion simplifiée.",
+    perks: ["Tableau de bord opérationnel", "Stats chiffre d'affaires", "Gestion des menus et catégories"],
+  },
+  driver: {
+    icon: Truck,
+    label: "Livreur",
+    headline: "Travaillez à votre rythme",
+    desc: "Gérez vos missions depuis votre téléphone avec un système de dispatch équitable.",
+    perks: ["Missions gérées en temps réel", "Dispatch transparent", "Gains quotidiens suivis"],
+  },
+};
+
 export default function Register() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
   const { toast } = useToast();
   const registerMutation = useRegister();
+  const [activeRole, setActiveRole] = React.useState<"customer" | "restaurant" | "driver">("customer");
 
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      name: "",
-      email: "",
-      password: "",
-      phone: "",
-      role: "customer",
-    },
+    defaultValues: { name: "", email: "", password: "", phone: "", role: "customer" },
   });
 
   const onSubmit = (values: z.infer<typeof registerSchema>) => {
@@ -51,118 +64,150 @@ export default function Register() {
       {
         onSuccess: (data) => {
           login(data.user, data.token);
-          toast({
-            title: "Inscription réussie",
-            description: `Bienvenue sur Tasty Crousty, ${data.user.name}`,
-          });
-          
-          if (data.user.role === 'restaurant') setLocation('/dashboard');
-          else if (data.user.role === 'driver') setLocation('/driver');
-          else setLocation('/restaurants');
+          toast({ title: "Bienvenue !", description: `Compte créé avec succès, ${data.user.name} !` });
+          if (data.user.role === "restaurant") setLocation("/dashboard");
+          else if (data.user.role === "driver") setLocation("/driver");
+          else setLocation("/restaurants");
         },
         onError: (err: any) => {
-          toast({
-            variant: "destructive",
-            title: "Erreur d'inscription",
-            description: err.message || "Une erreur est survenue.",
-          });
-        }
+          toast({ variant: "destructive", title: "Erreur d'inscription", description: err.message || "Une erreur est survenue." });
+        },
       }
     );
   };
 
+  const roleConfig = ROLE_CONFIG[activeRole];
+  const RoleIcon = roleConfig.icon;
+
   return (
-    <div className="min-h-screen flex flex-col bg-muted/20">
-      <Navbar />
-      <div className="flex-1 flex items-center justify-center p-4 py-12">
-        <Card className="w-full max-w-md shadow-lg border-primary/10">
-          <CardHeader className="space-y-2 text-center pb-6">
-            <CardTitle className="text-2xl font-bold tracking-tight">Rejoignez-nous</CardTitle>
-            <CardDescription>
-              Créez votre compte Tasty Crousty
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="customer" onValueChange={(val) => form.setValue("role", val as any)}>
-              <TabsList className="grid w-full grid-cols-3 mb-6">
-                <TabsTrigger value="customer">Client</TabsTrigger>
-                <TabsTrigger value="restaurant">Resto</TabsTrigger>
-                <TabsTrigger value="driver">Livreur</TabsTrigger>
+    <div className="min-h-screen flex">
+      {/* Left dynamic branding */}
+      <div className="hidden lg:flex flex-col w-[44%] bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 text-white relative overflow-hidden p-12">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 to-transparent pointer-events-none" />
+        <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full bg-primary/8 blur-3xl" />
+
+        <div className="relative z-10 flex flex-col h-full">
+          <Link href="/" className="flex items-center gap-3 mb-auto">
+            <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center">
+              <UtensilsCrossed className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
+            </div>
+            <span className="font-extrabold text-xl">TastyCrousty</span>
+          </Link>
+
+          <div className="my-auto transition-all duration-300">
+            <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center mb-6">
+              <RoleIcon className="w-7 h-7 text-primary" />
+            </div>
+            <h2 className="text-3xl font-extrabold leading-tight mb-3">{roleConfig.headline}</h2>
+            <p className="text-white/60 text-sm leading-relaxed mb-8 max-w-xs">{roleConfig.desc}</p>
+
+            <div className="space-y-3">
+              {roleConfig.perks.map((perk) => (
+                <div key={perk} className="flex items-center gap-3 text-white/70 text-sm">
+                  <ChevronRight className="w-4 h-4 text-primary shrink-0" />
+                  <span>{perk}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <p className="text-white/30 text-xs">Algérie 🇩🇿 — TastyCrousty 2026</p>
+        </div>
+      </div>
+
+      {/* Right form panel */}
+      <div className="flex-1 flex flex-col">
+        <div className="lg:hidden flex items-center gap-3 p-5 border-b">
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
+              <UtensilsCrossed className="w-4 h-4 text-primary-foreground" strokeWidth={2.5} />
+            </div>
+            <span className="font-extrabold text-base">TastyCrousty</span>
+          </Link>
+        </div>
+
+        <div className="flex-1 flex items-center justify-center p-6 lg:p-12 overflow-y-auto">
+          <div className="w-full max-w-md fade-in-up">
+            <div className="mb-7">
+              <h1 className="text-3xl font-extrabold tracking-tight mb-2">Créez votre compte</h1>
+              <p className="text-muted-foreground">Rejoignez TastyCrousty dès maintenant — c'est gratuit.</p>
+            </div>
+
+            <Tabs defaultValue="customer" onValueChange={(val) => {
+              form.setValue("role", val as any);
+              setActiveRole(val as any);
+            }}>
+              <TabsList className="grid w-full grid-cols-3 mb-6 h-11">
+                <TabsTrigger value="customer" className="text-sm font-semibold">👤 Client</TabsTrigger>
+                <TabsTrigger value="restaurant" className="text-sm font-semibold">🍽️ Restaurant</TabsTrigger>
+                <TabsTrigger value="driver" className="text-sm font-semibold">🛵 Livreur</TabsTrigger>
               </TabsList>
-              
+
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
+                  <FormField control={form.control} name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nom complet</FormLabel>
+                        <FormLabel className="font-semibold text-sm">Nom complet</FormLabel>
                         <FormControl>
-                          <Input placeholder="Jean Dupont" {...field} />
+                          <Input placeholder="Mohammed Amine" className="h-11" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="email"
+                  <FormField control={form.control} name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel className="font-semibold text-sm">Adresse email</FormLabel>
                         <FormControl>
-                          <Input placeholder="nom@exemple.com" type="email" {...field} />
+                          <Input placeholder="nom@exemple.com" type="email" className="h-11" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="phone"
+                  <FormField control={form.control} name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Téléphone (Optionnel)</FormLabel>
+                        <FormLabel className="font-semibold text-sm">Téléphone <span className="text-muted-foreground font-normal">(optionnel)</span></FormLabel>
                         <FormControl>
-                          <Input placeholder="06 12 34 56 78" {...field} />
+                          <Input placeholder="+213 5XX XXX XXX" className="h-11" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="password"
+                  <FormField control={form.control} name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Mot de passe</FormLabel>
+                        <FormLabel className="font-semibold text-sm">Mot de passe</FormLabel>
                         <FormControl>
-                          <Input type="password" {...field} />
+                          <Input type="password" placeholder="Minimum 6 caractères" className="h-11" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button 
-                    type="submit" 
-                    className="w-full h-11 text-base mt-2" 
-                    disabled={registerMutation.isPending}
-                  >
-                    {registerMutation.isPending ? "Création..." : "Créer mon compte"}
+                  <Button type="submit" className="w-full h-12 text-base font-semibold rounded-xl mt-1" disabled={registerMutation.isPending}>
+                    {registerMutation.isPending ? "Création du compte..." : "Créer mon compte"}
                   </Button>
                 </form>
               </Form>
             </Tabs>
-            
+
             <div className="mt-6 text-center text-sm text-muted-foreground">
               Déjà un compte ?{" "}
-              <Link href="/auth/login" className="text-primary font-medium hover:underline">
+              <Link href="/auth/login" className="text-primary font-semibold hover:underline">
                 Se connecter
               </Link>
             </div>
-          </CardContent>
-        </Card>
+
+            <p className="text-xs text-center text-muted-foreground mt-6">
+              En créant un compte, vous acceptez les conditions d'utilisation de TastyCrousty.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -30,7 +30,7 @@ export function OrderCard({ order, onClick, showCustomer }: OrderCardProps) {
         <div className="grid gap-1 text-sm">
           <div className="font-medium">{order.restaurantName}</div>
           {showCustomer && <div className="text-muted-foreground">{order.deliveryAddress}</div>}
-          <div className="font-semibold text-primary mt-2">{order.total.toFixed(2)} €</div>
+          <div className="font-semibold text-primary mt-2">{order.total.toFixed(2)} DA</div>
         </div>
       </CardContent>
     </Card>
