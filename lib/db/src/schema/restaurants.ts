@@ -26,6 +26,7 @@ export const restaurantsTable = pgTable("restaurants", {
   minimumOrder: numeric("minimum_order", { precision: 10, scale: 2 }).default("0.00"),
   freeDeliveryThreshold: numeric("free_delivery_threshold", { precision: 10, scale: 2 }),
   commissionRate: numeric("commission_rate", { precision: 5, scale: 2 }).default("10.00"),
+  commissionResetAt: timestamp("commission_reset_at", { withTimezone: true }),
   isDeleted: boolean("is_deleted").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

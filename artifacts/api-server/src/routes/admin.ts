@@ -660,6 +660,72 @@ router.get("/admin/disputes/:disputeId", authenticate, requireRole("admin"), asy
   res.json(formatDispute(row.dispute, { orderNumber: row.orderNumber, reportedByName: row.reportedByName }));
 });
 
+// COMMISSION - get all commission data
+router.get("/admin/commission", authenticate, requireRole("admin"), async (_req, res): Promise<void> => {
+  // Driver commissions: 12% of earningsTotal
+  const drivers = await db.select({
+    profile: driverProfilesTable,
+    name: usersTable.name,
+    email: usersTable.email,
+  }).from(driverProfilesTable)
+    .leftJoin(usersTable, eq(driverProfilesTable.userId, usersTable.id))
+    .where(eq(driverProfilesTable.status, "approved"))
+    .orderBy(desc(driverProfilesTable.earningsTotal));
+
+  // Restaurant commissions: 12% of delivered order subtotals since last reset
+  const restaurants = await db.select().from(restaurantsTable)
+    .where(eq(restaurantsTable.status, "approved"));
+
+  const restaurantCommissions = await Promise.all(restaurants.map(async (r) => {
+    const conditions = [
+      eq(ordersTable.restaurantId, r.id),
+      eq(ordersTable.status, "delivered"),
+    ];
+    if (r.commissionResetAt) {
+      conditions.push(sql`${ordersTable.updatedAt} > ${r.commissionResetAt}`);
+    }
+    const [row] = await db.select({ total: sum(ordersTable.subtotal) })
+      .from(ordersTable)
+      .where(and(...conditions));
+    const revenue = Number(row?.total ?? 0);
+    return { id: r.id, name: r.name, revenue, commission: Math.round(revenue * 0.12), commissionResetAt: r.commissionResetAt };
+  }));
+
+  res.json({
+    drivers: drivers.map(d => ({
+      id: d.profile.id,
+      name: d.name,
+      email: d.email,
+      earningsTotal: Number(d.profile.earningsTotal ?? 0),
+      commission: Math.round(Number(d.profile.earningsTotal ?? 0) * 0.12),
+      totalDeliveries: d.profile.totalDeliveries,
+    })),
+    restaurants: restaurantCommissions,
+  });
+});
+
+// COMMISSION - reset driver earnings to 0
+router.post("/admin/drivers/:driverId/reset-earnings", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(req.params.driverId, 10);
+  const [updated] = await db.update(driverProfilesTable)
+    .set({ earningsTotal: "0.00" })
+    .where(eq(driverProfilesTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Driver not found" }); return; }
+  res.json({ success: true });
+});
+
+// COMMISSION - reset restaurant commission (mark as collected)
+router.post("/admin/restaurants/:restaurantId/reset-commission", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(req.params.restaurantId, 10);
+  const [updated] = await db.update(restaurantsTable)
+    .set({ commissionResetAt: new Date() })
+    .where(eq(restaurantsTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Restaurant not found" }); return; }
+  res.json({ success: true });
+});
+
 // DISPUTES - customer-facing (report own order)
 router.post("/orders/:orderId/dispute", authenticate, async (req, res): Promise<void> => {
   const user = (req as any).user;

@@ -8,7 +8,7 @@ import { useGetAdminDashboard } from "@workspace/api-client-react";
 import {
   LayoutDashboard, ShoppingBag, Store, Truck, Users, MapPin,
   Radio, CheckSquare, Shield, CreditCard, Bell, Settings,
-  LogOut, ChevronRight, AlertTriangle, RefreshCw, Tag, MessageSquare,
+  LogOut, ChevronRight, AlertTriangle, RefreshCw, Tag, MessageSquare, Percent,
 } from "lucide-react";
 import { OverviewSection } from "./sections/OverviewSection";
 import { OrdersSection } from "./sections/OrdersSection";
@@ -23,11 +23,12 @@ import { ZonesSection } from "./sections/ZonesSection";
 import { SettingsSection } from "./sections/SettingsSection";
 import { PromoSection } from "./sections/PromoSection";
 import { DisputesSection } from "./sections/DisputesSection";
+import { CommissionSection } from "./sections/CommissionSection";
 
 type Section =
   | "overview" | "orders" | "restaurants" | "drivers" | "customers"
   | "dispatch" | "confirmation" | "fraud" | "payments" | "zones" | "settings"
-  | "promo" | "disputes";
+  | "promo" | "disputes" | "commission";
 
 interface NavItem {
   id: Section;
@@ -61,6 +62,7 @@ const navGroups: { title: string; items: NavItem[] }[] = [
     title: "Finance & Sécurité",
     items: [
       { id: "payments", label: "Paiements", icon: <CreditCard className="w-4 h-4" /> },
+      { id: "commission", label: "Commissions", icon: <Percent className="w-4 h-4" /> },
       { id: "promo", label: "Codes Promo", icon: <Tag className="w-4 h-4" /> },
       { id: "fraud", label: "Fraude", icon: <Shield className="w-4 h-4" /> },
       { id: "disputes", label: "Litiges & Support", icon: <MessageSquare className="w-4 h-4" /> },
@@ -235,6 +237,7 @@ export default function AdminDashboard() {
             {activeSection === "zones" && <ZonesSection />}
             {activeSection === "promo" && <PromoSection />}
             {activeSection === "disputes" && <DisputesSection />}
+            {activeSection === "commission" && <CommissionSection />}
             {activeSection === "settings" && <SettingsSection />}
           </div>
         </ScrollArea>
