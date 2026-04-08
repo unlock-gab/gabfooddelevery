@@ -561,7 +561,7 @@ router.patch("/customers/:customerId", authenticate, requireRole("admin"), async
 });
 
 // Delete customer
-router.delete("/customers/:customerId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/customers/:customerId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.customerId) ? req.params.customerId[0] : req.params.customerId, 10);
   const [result] = await db.select({ profile: customerProfilesTable })
     .from(customerProfilesTable)
@@ -588,7 +588,7 @@ router.delete("/customers/:customerId", authenticate, requireRole("admin"), asyn
 });
 
 // Delete restaurant (admin)
-router.delete("/restaurants/:restaurantId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+router.delete("/admin/restaurants/:restaurantId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.restaurantId) ? req.params.restaurantId[0] : req.params.restaurantId, 10);
   const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, id));
   if (!restaurant) { res.status(404).json({ error: "Not found" }); return; }
