@@ -1,0 +1,235 @@
+Refactor and redesign the restaurant dashboard in the existing Tasty Crousty project.
+
+Do not rebuild the whole platform.
+Keep the current business logic and architecture.
+Focus specifically on making the **restaurant dashboard** feel premium, operational, realistic, and useful.
+
+==================================================
+MAIN PROBLEM
+==================================================
+
+The current restaurant dashboard looks too empty, too basic, and not operational enough.
+It feels like a placeholder, not like a real restaurant control panel.
+
+It currently lacks:
+- operational density
+- useful business information
+- proper restaurant workflow visibility
+- strong hierarchy
+- strong quick actions
+- premium dashboard design
+- realistic empty states
+
+The restaurant dashboard should feel like a real business operations center.
+
+==================================================
+GOAL
+==================================================
+
+Redesign the restaurant dashboard so it becomes:
+- premium
+- modern
+- practical
+- easy to scan
+- rich in useful information
+- focused on restaurant daily operations
+- visually stronger
+- more aligned with a real food delivery platform
+
+==================================================
+LAYOUT DIRECTION
+==================================================
+
+Build a much stronger restaurant dashboard layout with these sections:
+
+1. Premium top header
+2. Operational KPI cards
+3. Active orders area
+4. Waiting-for-confirmation focus area
+5. Quick actions
+6. Restaurant performance widgets
+7. Better empty states
+
+==================================================
+1. TOP HEADER
+==================================================
+
+Create a more professional dashboard header including:
+- restaurant name
+- restaurant logo/avatar placeholder
+- current status badge:
+  - Ouvert
+  - Fermé
+  - En pause
+- today opening hours
+- main zone / wilaya
+- last update info
+- notification icon
+- quick action buttons such as:
+  - Mettre en pause
+  - Actualiser
+  - Gérer menu
+  - Voir commandes
+
+Make the top area visually stronger and more premium.
+
+==================================================
+2. KPI CARDS
+==================================================
+
+Replace the basic cards with richer operational cards showing:
+- En attente de confirmation
+- À préparer
+- En préparation
+- Prêtes pour pickup
+- Terminées aujourd’hui
+- Annulées aujourd’hui
+- Chiffre du jour (DA)
+- Temps moyen de préparation
+- Note moyenne
+
+Use better card hierarchy, icons, colors, and spacing.
+
+==================================================
+3. ACTIVE ORDERS AREA
+==================================================
+
+Build a real active orders section instead of a large empty blank zone.
+
+Add:
+- tabs or segmented filters:
+  - Toutes
+  - Attente confirmation
+  - À préparer
+  - En préparation
+  - Prêtes pickup
+- active order cards or a compact operational table
+- order urgency indicators
+- clear status badges
+- timestamps
+- total amount in DA
+- customer name
+- zone / address summary
+- driver assignment summary
+- action buttons based on order status
+
+==================================================
+4. WAITING FOR CONFIRMATION FOCUS
+==================================================
+
+This is one of the most important concepts of the product.
+
+Create a highlighted block specifically for orders that are waiting for driver/customer confirmation.
+
+This block should clearly explain:
+- preparation is locked
+- waiting for final validation
+- driver assigned or not
+- confirmation status
+- countdown / operational urgency if relevant
+
+The restaurant should clearly understand:
+“Do not begin preparation until confirmation is completed.”
+
+Make this section visually important.
+
+==================================================
+5. QUICK ACTIONS
+==================================================
+
+Add a quick actions section with clean cards/buttons such as:
+- Ajouter un produit
+- Gérer le menu
+- Modifier les horaires
+- Mettre le restaurant en pause
+- Gérer disponibilité produits
+- Voir statistiques
+- Voir historique commandes
+
+==================================================
+6. PERFORMANCE WIDGETS
+==================================================
+
+Add practical performance widgets for the restaurant, such as:
+- commandes aujourd’hui
+- chiffre du jour
+- temps moyen de préparation
+- taux d’annulation
+- note moyenne
+- top produits
+- commandes cette semaine
+
+These can be simple cards/charts if real data is limited.
+
+==================================================
+7. EMPTY STATE IMPROVEMENT
+==================================================
+
+If there are no active orders:
+- do not leave a large dead blank area
+- show a premium empty state
+- include illustration/icon
+- helpful text
+- quick actions
+- maybe today summary cards still visible
+- maybe upcoming operational tips or menu shortcuts
+
+The page should still feel alive and useful even when there are no active orders.
+
+==================================================
+VISUAL DIRECTION
+==================================================
+
+The dashboard must feel:
+- premium
+- restaurant-tech oriented
+- clean
+- modern
+- dense but readable
+- operationally useful
+
+Improve:
+- spacing
+- content hierarchy
+- typography
+- container widths
+- section rhythm
+- card polish
+- status chip design
+- actions visibility
+
+Use:
+- clean shadows
+- rounded-2xl cards
+- subtle borders
+- polished icons
+- strong dashboard structure
+
+==================================================
+FRENCH + ARABIC
+==================================================
+
+French remains the default language.
+Keep Arabic support structure.
+Make sure labels are polished and professional in French.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not make it look like a generic admin page.
+This is specifically a restaurant operations dashboard.
+It should help a restaurant manage live orders quickly and confidently.
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+1. redesign the restaurant dashboard layout
+2. improve the header and KPI cards
+3. add real operational sections
+4. improve the active orders area
+5. highlight waiting-for-confirmation logic
+6. add quick actions and performance widgets
+7. improve empty states
+8. keep the dashboard premium, practical, and client-ready
