@@ -10,7 +10,7 @@ import {
   ChefHat, CheckCircle, Package, RefreshCw, PauseCircle, PlayCircle,
   Lock, Clock, TrendingUp, AlertTriangle, ShoppingBag, Truck,
   Star, Zap, Plus, List, BarChart2, Menu as MenuIcon, ArrowRight,
-  MapPin, Phone, LogOut, Utensils, XCircle, Settings, Power, PowerOff,
+  MapPin, Phone, LogOut, Utensils, XCircle, Settings, ToggleRight, ToggleLeft,
 } from "lucide-react";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { cn } from "@/lib/utils";
@@ -523,8 +523,8 @@ export default function RestaurantDashboard() {
             {openLoading
               ? <span className="animate-pulse">...</span>
               : myRestaurant?.isOpen
-                ? <><PowerOff className="w-4 h-4" /> Fermer le restaurant</>
-                : <><Power className="w-4 h-4" /> Ouvrir le restaurant</>
+                ? <><ToggleLeft className="w-4 h-4" /> Fermer le restaurant</>
+                : <><ToggleRight className="w-4 h-4" /> Ouvrir le restaurant</>
             }
           </button>
 

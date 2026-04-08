@@ -2,7 +2,7 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { Linking } from "react-native";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -111,6 +111,29 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
     ["driver_assigned", "awaiting_customer_confirmation", "confirmed_for_preparation",
      "preparing", "ready_for_pickup", "picked_up", "on_the_way", "arriving_soon"].includes(o.status)
   );
+
+  // Track status changes and show in-app notifications
+  const prevStatuses = useRef<Record<number, string>>({});
+  const STATUS_ALERTS: Record<string, { title: string; body: string }> = {
+    preparing:        { title: "🍳 Le restaurant prépare !", body: "La cuisine a commencé votre commande. Préparez-vous à partir." },
+    ready_for_pickup: { title: "📦 Commande prête !", body: "Rendez-vous au restaurant pour récupérer la commande." },
+    confirmed_for_preparation: { title: "✅ Adresse confirmée", body: "La commande va être préparée. Restez disponible." },
+    awaiting_customer_confirmation: { title: "📞 Confirmation en attente", body: "Appelez le client pour confirmer son adresse." },
+  };
+
+  useEffect(() => {
+    for (const order of activeOrders) {
+      const prev = prevStatuses.current[order.id];
+      if (prev && prev !== order.status) {
+        const alert = STATUS_ALERTS[order.status];
+        if (alert) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert(alert.title, `${alert.body}\n\nCommande #${order.id}`);
+        }
+      }
+      prevStatuses.current[order.id] = order.status;
+    }
+  }, [activeOrders]);
 
   const accept = useAcceptMission();
   const reject = useRejectMission();
