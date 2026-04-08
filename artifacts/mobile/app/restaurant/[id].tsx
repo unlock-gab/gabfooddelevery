@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -13,15 +14,28 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
 import { useGetRestaurant, useListMenuCategories, useListProducts } from "@workspace/api-client-react";
 import { formatDA } from "@/utils/format";
 
+function requireAuth(action: () => void) {
+  Alert.alert(
+    "Connexion requise",
+    "Connectez-vous pour passer une commande.",
+    [
+      { text: "Annuler", style: "cancel" },
+      { text: "Se connecter", onPress: () => router.push("/(auth)/login" as any) },
+    ]
+  );
+}
+
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { items, addItem, updateQuantity, restaurantId, total, itemCount } = useCart();
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
 
@@ -34,6 +48,7 @@ export default function RestaurantScreen() {
     items.find((i) => i.productId === itemId)?.quantity ?? 0;
 
   const handleAdd = (product: any) => {
+    if (!user) { requireAuth(() => {}); return; }
     if (restaurant) {
       addItem(
         { productId: product.id, name: product.name, price: product.price, quantity: 1 },
@@ -247,7 +262,10 @@ export default function RestaurantScreen() {
           </View>
           <TouchableOpacity
             style={[s.checkoutBtn, { backgroundColor: colors.primary }]}
-            onPress={() => router.push("/checkout" as any)}
+            onPress={() => {
+              if (!user) { requireAuth(() => {}); return; }
+              router.push("/checkout" as any);
+            }}
           >
             <Text style={[s.checkoutBtnText, { color: colors.primaryForeground }]}>
               Commander

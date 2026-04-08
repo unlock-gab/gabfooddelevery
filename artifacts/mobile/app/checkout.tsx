@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useColors } from "@/hooks/useColors";
 import { formatDA } from "@/utils/format";
@@ -80,7 +81,14 @@ function PickerModal<T extends { id: number; name: string; nameAr?: string | nul
 export default function CheckoutScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { user, isLoading: authLoading } = useAuth();
   const { items, restaurantId, restaurantName, total, clearCart } = useCart();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/(auth)/login" as any);
+    }
+  }, [user, authLoading]);
 
   const [cities, setCities] = useState<City[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
