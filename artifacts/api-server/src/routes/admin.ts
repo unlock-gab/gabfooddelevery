@@ -6,7 +6,7 @@ import {
   orderStatusHistoryTable, qrDeliveryTokensTable, promoCodesTable, promoUsageTable,
   disputesTable, dispatchAttemptsTable, notificationsTable,
   deliveryConfirmationsTable, menuCategoriesTable, productsTable,
-  addressesTable, orderItemsTable,
+  addressesTable, orderItemsTable, zonesTable, citiesTable,
 } from "@workspace/db";
 import { createNotification } from "../lib/notifications";
 import { eq, and, count, sql, sum, avg, desc } from "drizzle-orm";
@@ -535,6 +535,289 @@ router.post("/admin/fraud-flags/:flagId/resolve", authenticate, requireRole("adm
     isResolved: flag.isResolved,
     resolvedAt: flag.resolvedAt?.toISOString() ?? null,
     createdAt: flag.createdAt.toISOString(),
+  });
+});
+
+// ADMIN DISPATCH CENTER — Comprehensive dashboard
+router.get("/admin/dispatch/center", authenticate, requireRole("admin"), async (_req, res): Promise<void> => {
+  const now = new Date();
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+  const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000);
+
+  // ── KPIs ──
+  const [orderKpi] = await db.select({
+    pending: sql<number>`count(*) filter (where ${ordersTable.status} = 'pending_dispatch')`,
+    dispatching: sql<number>`count(*) filter (where ${ordersTable.status} = 'dispatching_driver')`,
+    pendingLong: sql<number>`count(*) filter (where ${ordersTable.status} in ('pending_dispatch','dispatching_driver') and ${ordersTable.createdAt} < ${thirtyMinAgo})`,
+  }).from(ordersTable);
+
+  const [attemptKpi] = await db.select({
+    totalAttempts: sql<number>`count(*) filter (where ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    acceptedToday: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'accepted' and ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    rejectedToday: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'rejected' and ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    timeoutToday: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'timeout' and ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    noDriverToday: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'no_driver' and ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    pendingAttempts: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'pending' and ${dispatchAttemptsTable.expiresAt} > now())`,
+  }).from(dispatchAttemptsTable);
+
+  const [driverKpi] = await db.select({
+    online: sql<number>`count(*) filter (where ${driverProfilesTable.isOnline} = true and ${driverProfilesTable.status} = 'approved')`,
+    total: sql<number>`count(*) filter (where ${driverProfilesTable.status} = 'approved')`,
+  }).from(driverProfilesTable);
+
+  // ── Orders waiting for dispatch ──
+  const waitingOrders = await db.select({
+    id: ordersTable.id,
+    orderNumber: ordersTable.orderNumber,
+    status: ordersTable.status,
+    total: ordersTable.total,
+    subtotal: ordersTable.subtotal,
+    deliveryAddress: ordersTable.deliveryAddress,
+    createdAt: ordersTable.createdAt,
+    updatedAt: ordersTable.updatedAt,
+    zoneId: ordersTable.zoneId,
+    restaurantName: restaurantsTable.name,
+    restaurantId: ordersTable.restaurantId,
+    zoneName: zonesTable.name,
+    cityName: citiesTable.name,
+    attemptCount: sql<number>`(select count(*) from dispatch_attempts da where da.order_id = ${ordersTable.id})`,
+  }).from(ordersTable)
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .leftJoin(zonesTable, eq(ordersTable.zoneId, zonesTable.id))
+    .leftJoin(citiesTable, eq(zonesTable.cityId, citiesTable.id))
+    .where(sql`${ordersTable.status} in ('pending_dispatch','dispatching_driver')`)
+    .orderBy(ordersTable.createdAt)
+    .limit(50);
+
+  // ── Active dispatch attempts (pending result, not yet expired) ──
+  const activeAttempts = await db.select({
+    id: dispatchAttemptsTable.id,
+    orderId: dispatchAttemptsTable.orderId,
+    driverId: dispatchAttemptsTable.driverId,
+    result: dispatchAttemptsTable.result,
+    attemptedAt: dispatchAttemptsTable.attemptedAt,
+    expiresAt: dispatchAttemptsTable.expiresAt,
+    respondedAt: dispatchAttemptsTable.respondedAt,
+    driverName: usersTable.name,
+    orderNumber: ordersTable.orderNumber,
+    restaurantName: restaurantsTable.name,
+    driverAcceptanceRate: driverProfilesTable.acceptanceRate,
+    driverRating: driverProfilesTable.avgRating,
+    driverOnline: driverProfilesTable.isOnline,
+  }).from(dispatchAttemptsTable)
+    .leftJoin(usersTable, eq(dispatchAttemptsTable.driverId, usersTable.id))
+    .leftJoin(ordersTable, eq(dispatchAttemptsTable.orderId, ordersTable.id))
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .leftJoin(driverProfilesTable, eq(driverProfilesTable.userId, dispatchAttemptsTable.driverId))
+    .where(sql`${dispatchAttemptsTable.result} = 'pending' and ${dispatchAttemptsTable.expiresAt} > now()`)
+    .orderBy(desc(dispatchAttemptsTable.attemptedAt))
+    .limit(30);
+
+  // ── Recent driver responses (last hour) ──
+  const recentResponses = await db.select({
+    id: dispatchAttemptsTable.id,
+    orderId: dispatchAttemptsTable.orderId,
+    driverId: dispatchAttemptsTable.driverId,
+    result: dispatchAttemptsTable.result,
+    attemptedAt: dispatchAttemptsTable.attemptedAt,
+    respondedAt: dispatchAttemptsTable.respondedAt,
+    driverName: usersTable.name,
+    orderNumber: ordersTable.orderNumber,
+    restaurantName: restaurantsTable.name,
+    driverAcceptanceRate: driverProfilesTable.acceptanceRate,
+    driverRating: driverProfilesTable.avgRating,
+    zoneName: zonesTable.name,
+  }).from(dispatchAttemptsTable)
+    .leftJoin(usersTable, eq(dispatchAttemptsTable.driverId, usersTable.id))
+    .leftJoin(ordersTable, eq(dispatchAttemptsTable.orderId, ordersTable.id))
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .leftJoin(driverProfilesTable, eq(driverProfilesTable.userId, dispatchAttemptsTable.driverId))
+    .leftJoin(zonesTable, eq(ordersTable.zoneId, zonesTable.id))
+    .where(sql`${dispatchAttemptsTable.result} != 'pending' and ${dispatchAttemptsTable.attemptedAt} >= ${oneHourAgo}`)
+    .orderBy(desc(dispatchAttemptsTable.attemptedAt))
+    .limit(40);
+
+  // ── Failed dispatches (orders stuck with no driver, or many timeouts) ──
+  const failedOrders = await db.select({
+    id: ordersTable.id,
+    orderNumber: ordersTable.orderNumber,
+    status: ordersTable.status,
+    total: ordersTable.total,
+    createdAt: ordersTable.createdAt,
+    deliveryAddress: ordersTable.deliveryAddress,
+    restaurantName: restaurantsTable.name,
+    zoneName: zonesTable.name,
+    cityName: citiesTable.name,
+    attemptCount: sql<number>`(select count(*) from dispatch_attempts da where da.order_id = ${ordersTable.id})`,
+    timeoutCount: sql<number>`(select count(*) from dispatch_attempts da where da.order_id = ${ordersTable.id} and da.result = 'timeout')`,
+    rejectedCount: sql<number>`(select count(*) from dispatch_attempts da where da.order_id = ${ordersTable.id} and da.result = 'rejected')`,
+  }).from(ordersTable)
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .leftJoin(zonesTable, eq(ordersTable.zoneId, zonesTable.id))
+    .leftJoin(citiesTable, eq(zonesTable.cityId, citiesTable.id))
+    .where(sql`${ordersTable.status} in ('pending_dispatch','dispatching_driver') and ${ordersTable.createdAt} < ${thirtyMinAgo}`)
+    .orderBy(ordersTable.createdAt)
+    .limit(20);
+
+  // ── Zone pressure (orders per zone) ──
+  const zonePressure = await db.select({
+    zoneId: zonesTable.id,
+    zoneName: zonesTable.name,
+    cityName: citiesTable.name,
+    waitingOrders: sql<number>`count(*) filter (where ${ordersTable.status} in ('pending_dispatch','dispatching_driver'))`,
+    totalOrders: sql<number>`count(*) filter (where ${ordersTable.createdAt} >= ${today})`,
+    onlineDrivers: sql<number>`(select count(*) from driver_profiles dp where dp.is_online = true and dp.status = 'approved' and dp.current_zone_id = ${zonesTable.id})`,
+  }).from(zonesTable)
+    .leftJoin(citiesTable, eq(zonesTable.cityId, citiesTable.id))
+    .leftJoin(ordersTable, eq(ordersTable.zoneId, zonesTable.id))
+    .where(eq(zonesTable.isActive, true))
+    .groupBy(zonesTable.id, zonesTable.name, citiesTable.name)
+    .orderBy(desc(sql`count(*) filter (where ${ordersTable.status} in ('pending_dispatch','dispatching_driver'))`))
+    .limit(15);
+
+  // ── Activity feed (recent dispatch events) ──
+  const activityFeed = await db.select({
+    id: dispatchAttemptsTable.id,
+    orderId: dispatchAttemptsTable.orderId,
+    result: dispatchAttemptsTable.result,
+    attemptedAt: dispatchAttemptsTable.attemptedAt,
+    respondedAt: dispatchAttemptsTable.respondedAt,
+    driverName: usersTable.name,
+    orderNumber: ordersTable.orderNumber,
+    restaurantName: restaurantsTable.name,
+  }).from(dispatchAttemptsTable)
+    .leftJoin(usersTable, eq(dispatchAttemptsTable.driverId, usersTable.id))
+    .leftJoin(ordersTable, eq(dispatchAttemptsTable.orderId, ordersTable.id))
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .where(sql`${dispatchAttemptsTable.attemptedAt} >= ${oneHourAgo}`)
+    .orderBy(desc(dispatchAttemptsTable.attemptedAt))
+    .limit(30);
+
+  // ── Online drivers (for manual assignment) ──
+  const onlineDrivers = await db.select({
+    id: usersTable.id,
+    name: usersTable.name,
+    phone: usersTable.phone,
+    acceptanceRate: driverProfilesTable.acceptanceRate,
+    avgRating: driverProfilesTable.avgRating,
+    totalDeliveries: driverProfilesTable.totalDeliveries,
+    currentZoneId: driverProfilesTable.currentZoneId,
+    zoneName: zonesTable.name,
+    isOnline: driverProfilesTable.isOnline,
+  }).from(driverProfilesTable)
+    .leftJoin(usersTable, eq(driverProfilesTable.userId, usersTable.id))
+    .leftJoin(zonesTable, eq(driverProfilesTable.currentZoneId, zonesTable.id))
+    .where(sql`${driverProfilesTable.isOnline} = true and ${driverProfilesTable.status} = 'approved'`)
+    .orderBy(desc(driverProfilesTable.avgRating))
+    .limit(50);
+
+  // ── Analytics: hourly dispatch attempts (last 12h) ──
+  const hourlyAttempts = await db.select({
+    hour: sql<number>`extract(hour from ${dispatchAttemptsTable.attemptedAt})`,
+    accepted: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'accepted')`,
+    rejected: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'rejected')`,
+    timeout: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'timeout')`,
+    noDriver: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'no_driver')`,
+  }).from(dispatchAttemptsTable)
+    .where(sql`${dispatchAttemptsTable.attemptedAt} >= ${today}`)
+    .groupBy(sql`extract(hour from ${dispatchAttemptsTable.attemptedAt})`)
+    .orderBy(sql`extract(hour from ${dispatchAttemptsTable.attemptedAt})`);
+
+  const totalAttempts = Number(attemptKpi.totalAttempts ?? 0);
+  const accepted = Number(attemptKpi.acceptedToday ?? 0);
+  const successRate = totalAttempts > 0 ? Math.round(accepted / totalAttempts * 100) : 0;
+  const timeoutRate = totalAttempts > 0 ? Math.round(Number(attemptKpi.timeoutToday ?? 0) / totalAttempts * 100) : 0;
+
+  res.json({
+    kpis: {
+      pendingDispatch: Number(orderKpi.pending ?? 0),
+      dispatchingDriver: Number(orderKpi.dispatching ?? 0),
+      pendingLong: Number(orderKpi.pendingLong ?? 0),
+      activeAttempts: Number(attemptKpi.pendingAttempts ?? 0),
+      totalAttempts,
+      successRate,
+      timeoutRate,
+      noDriverToday: Number(attemptKpi.noDriverToday ?? 0),
+      onlineDrivers: Number(driverKpi.online ?? 0),
+      totalDrivers: Number(driverKpi.total ?? 0),
+    },
+    waitingOrders: waitingOrders.map(o => ({
+      id: o.id, orderNumber: o.orderNumber, status: o.status,
+      total: Number(o.total), deliveryAddress: o.deliveryAddress,
+      createdAt: o.createdAt.toISOString(), updatedAt: o.updatedAt.toISOString(),
+      restaurantName: o.restaurantName ?? "Inconnu", restaurantId: o.restaurantId,
+      zoneName: o.zoneName ?? null, cityName: o.cityName ?? null,
+      attemptCount: Number(o.attemptCount ?? 0),
+    })),
+    activeAttempts: activeAttempts.map(a => ({
+      id: a.id, orderId: a.orderId, driverId: a.driverId,
+      result: a.result, driverName: a.driverName ?? "Inconnu",
+      orderNumber: a.orderNumber ?? "", restaurantName: a.restaurantName ?? "",
+      attemptedAt: a.attemptedAt.toISOString(),
+      expiresAt: a.expiresAt?.toISOString() ?? null,
+      respondedAt: a.respondedAt?.toISOString() ?? null,
+      acceptanceRate: Number(a.driverAcceptanceRate ?? 0),
+      avgRating: Number(a.driverRating ?? 0),
+      isOnline: a.driverOnline ?? false,
+    })),
+    recentResponses: recentResponses.map(r => ({
+      id: r.id, orderId: r.orderId, driverId: r.driverId,
+      result: r.result, driverName: r.driverName ?? "Inconnu",
+      orderNumber: r.orderNumber ?? "", restaurantName: r.restaurantName ?? "",
+      attemptedAt: r.attemptedAt.toISOString(),
+      respondedAt: r.respondedAt?.toISOString() ?? null,
+      acceptanceRate: Number(r.driverAcceptanceRate ?? 0),
+      avgRating: Number(r.driverRating ?? 0),
+      zoneName: r.zoneName ?? null,
+    })),
+    failedOrders: failedOrders.map(o => ({
+      id: o.id, orderNumber: o.orderNumber, status: o.status,
+      total: Number(o.total), deliveryAddress: o.deliveryAddress,
+      createdAt: o.createdAt.toISOString(), restaurantName: o.restaurantName ?? "Inconnu",
+      zoneName: o.zoneName ?? null, cityName: o.cityName ?? null,
+      attemptCount: Number(o.attemptCount ?? 0),
+      timeoutCount: Number(o.timeoutCount ?? 0),
+      rejectedCount: Number(o.rejectedCount ?? 0),
+    })),
+    zonePressure: zonePressure.map(z => ({
+      zoneId: z.zoneId, zoneName: z.zoneName, cityName: z.cityName ?? null,
+      waitingOrders: Number(z.waitingOrders ?? 0),
+      totalOrders: Number(z.totalOrders ?? 0),
+      onlineDrivers: Number(z.onlineDrivers ?? 0),
+    })).filter(z => z.waitingOrders > 0 || z.totalOrders > 0),
+    activityFeed: activityFeed.map(a => ({
+      id: a.id, orderId: a.orderId, result: a.result,
+      driverName: a.driverName ?? "Inconnu", orderNumber: a.orderNumber ?? "",
+      restaurantName: a.restaurantName ?? "",
+      attemptedAt: a.attemptedAt.toISOString(),
+      respondedAt: a.respondedAt?.toISOString() ?? null,
+    })),
+    onlineDrivers: onlineDrivers.map(d => ({
+      id: d.id, name: d.name ?? "Inconnu", phone: d.phone ?? null,
+      acceptanceRate: Number(d.acceptanceRate ?? 0),
+      avgRating: Number(d.avgRating ?? 0),
+      totalDeliveries: d.totalDeliveries ?? 0,
+      currentZoneId: d.currentZoneId ?? null,
+      zoneName: d.zoneName ?? null, isOnline: d.isOnline,
+    })),
+    analytics: {
+      today: {
+        total: totalAttempts,
+        accepted: Number(attemptKpi.acceptedToday ?? 0),
+        rejected: Number(attemptKpi.rejectedToday ?? 0),
+        timeout: Number(attemptKpi.timeoutToday ?? 0),
+        noDriver: Number(attemptKpi.noDriverToday ?? 0),
+        successRate, timeoutRate,
+      },
+      hourly: hourlyAttempts.map(h => ({
+        hour: Number(h.hour),
+        accepted: Number(h.accepted ?? 0),
+        rejected: Number(h.rejected ?? 0),
+        timeout: Number(h.timeout ?? 0),
+        noDriver: Number(h.noDriver ?? 0),
+      })),
+    },
   });
 });
 

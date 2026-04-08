@@ -161,6 +161,7 @@ draft
 | /driver               | DriverDashboard      | Also /livreur |
 | /admin                | AdminDashboard       | 11 sections: Overview, Orders, Dispatch, Confirmation, Restaurants, Drivers, Customers, Zones, Payments, Fraud, Settings |
 | /admin → Orders → click | AdminOrderDetail     | Full-page modal: 12 sections — timeline, dispatch, PrepLock™ confirmation, QR, articles, payment, customer, restaurant, driver, fraud/disputes, internal notes, audit trail |
+| /admin → Dispatch       | DispatchSection      | Premium control tower: KPI bar, order tabs (En attente/Rounds actifs/Bloquées), driver response monitor, activity feed, zone pressure cards, hourly analytics chart, manual assignment modal |
 
 ## Important: API Client URL Configuration
 
