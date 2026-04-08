@@ -10,11 +10,12 @@ import {
   ChefHat, CheckCircle, Package, RefreshCw, PauseCircle, PlayCircle,
   Lock, Clock, TrendingUp, AlertTriangle, ShoppingBag, Truck,
   Star, Zap, Plus, List, BarChart2, Menu as MenuIcon, ArrowRight,
-  MapPin, Phone, LogOut, Bell, Utensils, XCircle,
+  MapPin, Phone, LogOut, Utensils, XCircle, Settings,
 } from "lucide-react";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { cn } from "@/lib/utils";
 import MenuManager from "./MenuManager";
+import RestaurantSettings from "./Settings";
 
 /* ─── constants ──────────────────────────────────────────────────────────── */
 
@@ -278,9 +279,10 @@ function EmptyOrders({ onAddProduct, onRefresh }: { onAddProduct: () => void; on
 /* ─── nav items ──────────────────────────────────────────────────────────── */
 
 const NAV = [
-  { id: "overview", icon: BarChart2, label: "Tableau de bord" },
-  { id: "orders",   icon: List,      label: "Commandes" },
-  { id: "menu",     icon: MenuIcon,  label: "Menu" },
+  { id: "overview",  icon: BarChart2, label: "Tableau de bord" },
+  { id: "orders",    icon: List,      label: "Commandes" },
+  { id: "menu",      icon: MenuIcon,  label: "Menu" },
+  { id: "settings",  icon: Settings,  label: "Paramètres" },
 ];
 
 /* ─── main component ─────────────────────────────────────────────────────── */
@@ -524,7 +526,7 @@ export default function RestaurantDashboard() {
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-lg font-bold text-slate-900">
-                {tab === "overview" ? "Tableau de bord" : tab === "orders" ? "Commandes" : "Menu"}
+                {tab === "overview" ? "Tableau de bord" : tab === "orders" ? "Commandes" : tab === "menu" ? "Menu" : "Paramètres"}
               </h1>
               {pendingConf.length > 0 && tab === "overview" && (
                 <span className="flex items-center gap-1.5 bg-orange-100 text-orange-700 text-xs font-bold px-2.5 py-1 rounded-full border border-orange-200">
@@ -541,7 +543,7 @@ export default function RestaurantDashboard() {
             <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-slate-600 hover:text-slate-900" onClick={refetchAll}>
               <RefreshCw className="w-3.5 h-3.5" />
             </Button>
-            {tab !== "menu" && (
+            {tab !== "menu" && tab !== "settings" && (
               <Button size="sm" className="h-9 text-xs gap-2 rounded-xl shadow-sm" onClick={() => setTab("menu")}>
                 <Package className="w-3.5 h-3.5" /> Gérer menu
               </Button>
@@ -560,6 +562,18 @@ export default function RestaurantDashboard() {
                   <div className="text-center">
                     <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
                     <p className="text-sm">Chargement du menu…</p>
+                  </div>
+                </div>
+          )}
+
+          {/* ─── SETTINGS TAB ─── */}
+          {tab === "settings" && (
+            myRestaurant
+              ? <RestaurantSettings restaurant={myRestaurant} onUpdate={setMyRestaurant} />
+              : <div className="flex items-center justify-center py-24 text-slate-400">
+                  <div className="text-center">
+                    <Settings className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                    <p className="text-sm">Chargement…</p>
                   </div>
                 </div>
           )}
