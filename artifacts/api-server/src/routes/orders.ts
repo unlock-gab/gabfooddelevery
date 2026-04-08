@@ -61,6 +61,7 @@ router.get("/orders", authenticate, async (req, res): Promise<void> => {
   const orders = await db.select({
     order: ordersTable,
     restaurantName: restaurantsTable.name,
+    restaurantAddress: restaurantsTable.address,
     driverName: usersTable.name,
   })
     .from(ordersTable)
@@ -74,9 +75,10 @@ router.get("/orders", authenticate, async (req, res): Promise<void> => {
   const [{ total }] = await db.select({ total: count() }).from(ordersTable).where(whereClause);
 
   res.json({
-    orders: orders.map(({ order, restaurantName, driverName }) => ({
+    orders: orders.map(({ order, restaurantName, restaurantAddress, driverName }) => ({
       ...formatOrder(order),
       restaurantName: restaurantName ?? "Unknown",
+      restaurantAddress: restaurantAddress ?? null,
       driverName: driverName ?? null,
     })),
     total: Number(total),

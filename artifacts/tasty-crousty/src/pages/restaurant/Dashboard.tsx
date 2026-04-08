@@ -10,7 +10,7 @@ import { useListOrders, useGetRestaurantStats, useStartPreparing, useMarkOrderRe
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { ShoppingBag, Clock, TrendingUp, ChefHat, CheckCircle, Package, RefreshCw, PauseCircle, PlayCircle } from "lucide-react";
+import { ShoppingBag, Clock, TrendingUp, ChefHat, CheckCircle, Package, RefreshCw, PauseCircle, PlayCircle, List } from "lucide-react";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { Separator } from "@/components/ui/separator";
 import MenuManager from "./MenuManager";
@@ -128,6 +128,103 @@ function OrderCard({ order, onAction }: { order: any; onAction: () => void }) {
   );
 }
 
+const STATUS_BADGE: Record<string, string> = {
+  pending_dispatch: "bg-amber-100 text-amber-800",
+  dispatching_driver: "bg-blue-100 text-blue-800",
+  driver_assigned: "bg-blue-100 text-blue-800",
+  awaiting_customer_confirmation: "bg-orange-100 text-orange-800",
+  confirmed_for_preparation: "bg-green-100 text-green-800",
+  preparing: "bg-purple-100 text-purple-800",
+  ready_for_pickup: "bg-indigo-100 text-indigo-800",
+  picked_up: "bg-cyan-100 text-cyan-800",
+  on_the_way: "bg-sky-100 text-sky-800",
+  arriving_soon: "bg-teal-100 text-teal-800",
+  delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-800",
+  failed: "bg-red-100 text-red-800",
+  refunded: "bg-slate-100 text-slate-600",
+};
+
+function AllOrdersTab() {
+  const [page, setPage] = React.useState(1);
+  const limit = 20;
+
+  const { data, isLoading, refetch } = useListOrders(
+    { limit, offset: (page - 1) * limit } as any,
+    { query: { refetchInterval: 30000 } }
+  );
+
+  const orders = (data as any)?.orders ?? [];
+  const total = (data as any)?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-bold">Toutes les commandes</h2>
+          <p className="text-sm text-muted-foreground">{total} commande{total !== 1 ? "s" : ""} au total</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="w-3.5 h-3.5 mr-1" /> Actualiser
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-12 text-muted-foreground">Chargement…</div>
+      ) : orders.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground">
+          <List className="w-12 h-12 mx-auto mb-3 opacity-20" />
+          <p>Aucune commande</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {orders.map((order: any) => (
+            <Card key={order.id} className="hover:shadow-sm transition-all">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-mono text-xs font-bold text-slate-700">{order.orderNumber}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[order.status] ?? "bg-slate-100 text-slate-600"}`}>
+                        {STATUS_LABELS[order.status] ?? order.status}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(order.createdAt).toLocaleString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {order.driverName && <span className="ml-2">· 🛵 {order.driverName}</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">{order.deliveryAddress}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-bold text-primary">{formatDA(order.total)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {order.items?.length ?? 0} article{(order.items?.length ?? 0) !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+            Précédent
+          </Button>
+          <span className="text-sm text-muted-foreground">Page {page} / {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>
+            Suivant
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RestaurantDashboard() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
@@ -198,9 +295,10 @@ export default function RestaurantDashboard() {
         </div>
         <nav className="flex-1 p-3 space-y-1">
           {[
-            { id: "active", icon: <ChefHat className="w-4 h-4 mr-2" />, label: "Commandes actives" },
-            { id: "menu",   icon: <Package className="w-4 h-4 mr-2" />,  label: "Menu" },
-            { id: "stats",  icon: <TrendingUp className="w-4 h-4 mr-2" />, label: "Statistiques" },
+            { id: "active",  icon: <ChefHat className="w-4 h-4 mr-2" />,  label: "Commandes actives" },
+            { id: "orders",  icon: <List className="w-4 h-4 mr-2" />,     label: "Toutes les commandes" },
+            { id: "menu",    icon: <Package className="w-4 h-4 mr-2" />,  label: "Menu" },
+            { id: "stats",   icon: <TrendingUp className="w-4 h-4 mr-2" />, label: "Statistiques" },
           ].map(item => (
             <Button
               key={item.id}
@@ -261,6 +359,9 @@ export default function RestaurantDashboard() {
               <p>Chargement du restaurant…</p>
             </div>
           )}
+
+          {/* ======= ALL ORDERS TAB ======= */}
+          {tab === "orders" && <AllOrdersTab />}
 
           {/* ======= STATS TAB ======= */}
           {tab === "stats" && (

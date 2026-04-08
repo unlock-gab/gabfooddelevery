@@ -224,7 +224,7 @@ export default function OrderTrackingScreen() {
         <View style={[s.totalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[s.totalLabel, { color: colors.mutedForeground }]}>Total payé</Text>
           <Text style={[s.totalValue, { color: colors.primary }]}>
-            {formatDA(o.totalAmount)}
+            {formatDA(o.total ?? o.totalAmount)}
           </Text>
         </View>
       </ScrollView>

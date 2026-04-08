@@ -1,6 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
+import { Linking } from "react-native";
 import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
@@ -327,6 +328,33 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
               {activeOrders.map((item: any) => {
                 const cancellableDriverStatuses = ["driver_assigned", "awaiting_customer_confirmation", "needs_update", "confirmation_failed"];
                 const canCancel = cancellableDriverStatuses.includes(item.status);
+
+                // Determine next step instructions based on status
+                const beforePickup = ["driver_assigned", "awaiting_customer_confirmation", "confirmed_for_preparation", "preparing", "ready_for_pickup"].includes(item.status);
+                const afterPickup = ["picked_up", "on_the_way", "arriving_soon"].includes(item.status);
+
+                const nextStepMap: Record<string, string> = {
+                  driver_assigned: "📍 Confirmez l'adresse client, puis allez au restaurant",
+                  awaiting_customer_confirmation: "⏳ En attente de confirmation de l'adresse client...",
+                  confirmed_for_preparation: "🍳 Le restaurant prépare — rendez-vous au restaurant",
+                  preparing: "🍳 Le restaurant prépare — rendez-vous au restaurant",
+                  ready_for_pickup: "🛍️ Commande prête ! Allez récupérer au restaurant",
+                  picked_up: "🛵 Commande récupérée — livrez chez le client",
+                  on_the_way: "🛵 En route — livrez chez le client",
+                  arriving_soon: "📍 Vous êtes presque arrivé chez le client !",
+                };
+                const nextStep = nextStepMap[item.status];
+
+                const openMaps = (address: string) => {
+                  const encoded = encodeURIComponent(address + ", Algérie");
+                  const url = Platform.OS === "ios"
+                    ? `maps:?q=${encoded}`
+                    : `geo:0,0?q=${encoded}`;
+                  Linking.openURL(url).catch(() =>
+                    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encoded}`)
+                  );
+                };
+
                 return (
                   <View key={item.id} style={[ds.missionCard, { backgroundColor: colors.card, borderColor: colors.border, padding: 0, overflow: "hidden" }]}>
                     <TouchableOpacity
@@ -342,14 +370,42 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
                       <Text style={[ds.missionRestaurant, { color: colors.foreground }]}>
                         {item.restaurantName ?? `Commande #${item.id}`}
                       </Text>
-                      <Text style={[ds.missionAddress, { color: colors.mutedForeground }]} numberOfLines={1}>
-                        {item.deliveryAddress}
-                      </Text>
+                      {nextStep && (
+                        <Text style={{ fontSize: 12, color: "#6B7280", marginTop: 4, marginBottom: 6 }}>
+                          {nextStep}
+                        </Text>
+                      )}
                       <View style={ds.missionFooter}>
                         <Text style={[ds.missionAmount, { color: colors.primary }]}>{formatDA(item.total)}</Text>
                         <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
                       </View>
                     </TouchableOpacity>
+
+                    {/* Navigation buttons */}
+                    {(beforePickup || afterPickup) && (
+                      <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border }}>
+                        {beforePickup && item.restaurantAddress && (
+                          <TouchableOpacity
+                            style={{ flex: 1, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6, backgroundColor: "#EFF6FF" }}
+                            onPress={() => openMaps(item.restaurantAddress)}
+                          >
+                            <Ionicons name="navigate" size={14} color="#2563EB" />
+                            <Text style={{ color: "#2563EB", fontSize: 13, fontWeight: "600" }}>Restaurant</Text>
+                          </TouchableOpacity>
+                        )}
+                        {afterPickup && item.deliveryAddress && (
+                          <TouchableOpacity
+                            style={{ flex: 1, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6, backgroundColor: "#F0FDF4" }}
+                            onPress={() => openMaps(item.deliveryAddress)}
+                          >
+                            <Ionicons name="navigate" size={14} color="#16A34A" />
+                            <Text style={{ color: "#16A34A", fontSize: 13, fontWeight: "600" }}>Client</Text>
+                          </TouchableOpacity>
+                        )}
+                        {/* Show both buttons when ready_for_pickup: restaurant nav only */}
+                      </View>
+                    )}
+
                     {canCancel && (
                       <TouchableOpacity
                         style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 10, alignItems: "center", backgroundColor: "#FEF2F2" }}
