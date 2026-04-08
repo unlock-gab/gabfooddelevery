@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useGetCart, useCreateOrder, useListCities, useListZones } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, MapPin, CreditCard, ChevronLeft, Banknote, Wifi, Lock, Shield, ChevronDown, Tag, CheckCircle, X, Home, Briefcase } from "lucide-react";
+import { ShoppingCart, MapPin, CreditCard, ChevronLeft, Banknote, Wifi, Lock, Shield, ChevronDown, Tag, CheckCircle, X, Home, Briefcase, Navigation, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDA } from "@/lib/format";
@@ -79,6 +79,54 @@ export default function Checkout() {
   const [promoInput, setPromoInput] = useState("");
   const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
+
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  const handleGpsLocate = () => {
+    if (!navigator.geolocation) {
+      toast({ title: "GPS non supporté", description: "Votre navigateur ne supporte pas la géolocalisation.", variant: "destructive" });
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords;
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&accept-language=fr`,
+            { headers: { "User-Agent": "TastyCrousty/1.0" } }
+          );
+          const data = await res.json();
+          const addr = data.address ?? {};
+          const parts = [
+            addr.house_number,
+            addr.road ?? addr.pedestrian ?? addr.footway,
+            addr.suburb ?? addr.neighbourhood ?? addr.quarter,
+            addr.city ?? addr.town ?? addr.village ?? addr.county,
+          ].filter(Boolean);
+          const fullAddress = parts.join(", ") || data.display_name?.split(",").slice(0, 3).join(",").trim() || "";
+          if (fullAddress) {
+            setForm(f => ({ ...f, deliveryAddress: fullAddress }));
+            toast({ title: "Position détectée", description: "Adresse remplie automatiquement. Vérifiez et ajustez si besoin." });
+          } else {
+            toast({ title: "Adresse introuvable", description: "Impossible de convertir votre position en adresse.", variant: "destructive" });
+          }
+        } catch {
+          toast({ title: "Erreur GPS", description: "Impossible de récupérer votre adresse.", variant: "destructive" });
+        } finally {
+          setGpsLoading(false);
+        }
+      },
+      (err) => {
+        setGpsLoading(false);
+        const msg = err.code === 1
+          ? "Accès à la localisation refusé. Autorisez la géolocalisation dans votre navigateur."
+          : "Impossible de détecter votre position.";
+        toast({ title: "Localisation impossible", description: msg, variant: "destructive" });
+      },
+      { timeout: 10000, maximumAge: 60000 }
+    );
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("tc_token");
@@ -151,10 +199,6 @@ export default function Checkout() {
     e.preventDefault();
     if (!cart || (cart as any).items.length === 0) {
       toast({ title: "Panier vide", variant: "destructive" });
-      return;
-    }
-    if (!form.deliveryAddress.trim() || form.deliveryAddress.trim().length < 10) {
-      toast({ title: "Adresse invalide", description: "Veuillez saisir une adresse complète (rue, quartier, ville).", variant: "destructive" });
       return;
     }
     if (!form.deliveryPhone.trim()) {
@@ -344,14 +388,27 @@ export default function Checkout() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-semibold">Adresse <span className="text-red-500">*</span></Label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <Label className="text-sm font-semibold">Adresse</Label>
+                      <button
+                        type="button"
+                        onClick={handleGpsLocate}
+                        disabled={gpsLoading}
+                        className="flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50 transition-colors bg-primary/8 hover:bg-primary/15 px-2.5 py-1 rounded-lg"
+                      >
+                        {gpsLoading
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Navigation className="w-3.5 h-3.5" />}
+                        {gpsLoading ? "Localisation…" : "Ma position GPS"}
+                      </button>
+                    </div>
                     <Input
                       placeholder="123 Rue Didouche Mourad, Alger"
                       value={form.deliveryAddress}
                       onChange={e => setForm(f => ({ ...f, deliveryAddress: e.target.value }))}
-                      required
-                      className="mt-1.5 h-11"
+                      className="h-11"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">Facultatif — le livreur vous contactera par téléphone si besoin.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
