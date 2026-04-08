@@ -1,0 +1,171 @@
+import { Router } from "express";
+import { db } from "@workspace/db";
+import { usersTable, addressesTable, notificationsTable, ratingsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
+import { authenticate } from "../lib/auth";
+
+const router = Router();
+
+router.get("/profile", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  res.json({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    phone: user.phone ?? null,
+    role: user.role,
+    avatarUrl: user.avatarUrl ?? null,
+    language: user.language ?? "fr",
+    riskScore: null,
+    createdAt: user.createdAt.toISOString(),
+  });
+});
+
+router.patch("/profile", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const { name, phone, avatarUrl, language } = req.body;
+  const updates: any = {};
+  if (name != null) updates.name = name;
+  if (phone !== undefined) updates.phone = phone;
+  if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+  if (language != null) updates.language = language;
+  const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, user.id)).returning();
+  res.json({
+    id: updated.id,
+    name: updated.name,
+    email: updated.email,
+    phone: updated.phone ?? null,
+    role: updated.role,
+    avatarUrl: updated.avatarUrl ?? null,
+    language: updated.language,
+    riskScore: null,
+    createdAt: updated.createdAt.toISOString(),
+  });
+});
+
+router.get("/addresses", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const addresses = await db.select().from(addressesTable).where(eq(addressesTable.userId, user.id)).orderBy(desc(addressesTable.createdAt));
+  res.json(addresses.map(a => ({
+    id: a.id,
+    label: a.label ?? null,
+    fullAddress: a.fullAddress,
+    landmark: a.landmark ?? null,
+    floor: a.floor ?? null,
+    instructions: a.instructions ?? null,
+    lat: a.lat ? Number(a.lat) : null,
+    lng: a.lng ? Number(a.lng) : null,
+    isDefault: a.isDefault,
+  })));
+});
+
+router.post("/addresses", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const { label, fullAddress, landmark, floor, instructions, lat, lng, isDefault } = req.body;
+  if (!fullAddress) { res.status(400).json({ error: "fullAddress required" }); return; }
+  const [addr] = await db.insert(addressesTable).values({
+    userId: user.id,
+    label: label ?? null,
+    fullAddress,
+    landmark: landmark ?? null,
+    floor: floor ?? null,
+    instructions: instructions ?? null,
+    lat: lat?.toString() ?? null,
+    lng: lng?.toString() ?? null,
+    isDefault: isDefault ?? false,
+  }).returning();
+  res.status(201).json({
+    id: addr.id,
+    label: addr.label ?? null,
+    fullAddress: addr.fullAddress,
+    landmark: addr.landmark ?? null,
+    floor: addr.floor ?? null,
+    instructions: addr.instructions ?? null,
+    lat: addr.lat ? Number(addr.lat) : null,
+    lng: addr.lng ? Number(addr.lng) : null,
+    isDefault: addr.isDefault,
+  });
+});
+
+router.delete("/addresses/:addressId", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const id = parseInt(Array.isArray(req.params.addressId) ? req.params.addressId[0] : req.params.addressId, 10);
+  await db.delete(addressesTable).where(eq(addressesTable.id, id));
+  res.sendStatus(204);
+});
+
+// NOTIFICATIONS
+router.get("/notifications", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const { unreadOnly } = req.query;
+
+  let query = db.select().from(notificationsTable).where(eq(notificationsTable.userId, user.id));
+  const notifications = await db.select().from(notificationsTable)
+    .where(eq(notificationsTable.userId, user.id))
+    .orderBy(desc(notificationsTable.createdAt))
+    .limit(50);
+
+  const result = unreadOnly === "true" ? notifications.filter(n => !n.isRead) : notifications;
+  res.json(result.map(n => ({
+    id: n.id,
+    userId: n.userId,
+    type: n.type,
+    title: n.title,
+    message: n.message,
+    isRead: n.isRead,
+    relatedOrderId: n.relatedOrderId ?? null,
+    createdAt: n.createdAt.toISOString(),
+  })));
+});
+
+router.post("/notifications/:notificationId/read", authenticate, async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.notificationId) ? req.params.notificationId[0] : req.params.notificationId, 10);
+  await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, id));
+  res.json({ success: true, message: "Marked as read" });
+});
+
+router.post("/notifications/read-all", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.userId, user.id));
+  res.json({ success: true, message: "All marked as read" });
+});
+
+// RATINGS
+router.post("/ratings", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const { orderId, targetType, targetId, rating, comment } = req.body;
+  if (!orderId || !targetType || !targetId || !rating) { res.status(400).json({ error: "Missing required fields" }); return; }
+
+  const [r] = await db.insert(ratingsTable).values({
+    orderId,
+    customerId: user.id,
+    targetType,
+    targetId,
+    rating,
+    comment: comment ?? null,
+  }).returning();
+
+  res.status(201).json({ id: r.id, orderId: r.orderId, restaurantId: targetType === "restaurant" ? targetId : null, driverId: targetType === "driver" ? targetId : null, customerId: r.customerId, rating: r.rating, comment: r.comment ?? null, targetType: r.targetType, createdAt: r.createdAt.toISOString() });
+});
+
+router.get("/ratings/restaurant/:restaurantId", async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.restaurantId) ? req.params.restaurantId[0] : req.params.restaurantId, 10);
+  const ratings = await db.select().from(ratingsTable)
+    .where(eq(ratingsTable.targetId, id))
+    .orderBy(desc(ratingsTable.createdAt))
+    .limit(50);
+
+  res.json(ratings.map(r => ({
+    id: r.id,
+    orderId: r.orderId,
+    restaurantId: id,
+    driverId: null,
+    customerId: r.customerId,
+    rating: r.rating,
+    comment: r.comment ?? null,
+    targetType: r.targetType,
+    createdAt: r.createdAt.toISOString(),
+  })));
+});
+
+export default router;

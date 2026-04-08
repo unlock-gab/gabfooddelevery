@@ -1,0 +1,212 @@
+Continue the Tasty Crousty project.
+
+Now focus on the **core business workflow** of the platform.
+
+This step is critical.
+
+Build the complete **order lifecycle logic**, **state machine**, **dispatch flow**, **driver assignment logic**, and **confirmation workflow**.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Implement the real operational engine of Tasty Crousty:
+- order state machine
+- allowed status transitions
+- restaurant preparation lock
+- driver dispatch logic
+- driver assignment
+- customer confirmation flow
+- fallback behavior
+- order timeline tracking
+
+==================================================
+BUSINESS RULE TO ENFORCE
+==================================================
+
+The restaurant must NOT start preparing immediately after order placement.
+
+Preparation can only begin after:
+1. a driver is assigned
+2. customer delivery details are confirmed
+
+This rule must be enforced in:
+- backend logic
+- UI action visibility
+- status transitions
+- notifications
+- restaurant dashboard actions
+
+==================================================
+ORDER STATE MACHINE
+==================================================
+
+Implement a strict state machine for the following statuses:
+- DRAFT
+- PENDING_DISPATCH
+- DISPATCHING_DRIVER
+- DRIVER_ASSIGNED
+- AWAITING_CUSTOMER_CONFIRMATION
+- NEEDS_UPDATE
+- CONFIRMATION_FAILED
+- CONFIRMED_FOR_PREPARATION
+- PREPARING
+- READY_FOR_PICKUP
+- PICKED_UP
+- ON_THE_WAY
+- ARRIVING_SOON
+- DELIVERED
+- CANCELLED
+- FAILED
+- REFUNDED
+
+Requirements:
+- each status transition must be validated
+- invalid transitions must be blocked
+- each transition must create a history record
+- each transition must record actor role and timestamp
+- build reusable transition helpers
+
+==================================================
+CORE FLOW TO IMPLEMENT
+==================================================
+
+1. Customer places order
+- create order
+- create items
+- calculate totals
+- assign initial status: PENDING_DISPATCH
+
+2. Restaurant receives order
+- restaurant sees full order details
+- restaurant sees preparation is locked
+- no preparation action allowed yet
+
+3. Dispatch engine runs
+- choose candidate drivers based on:
+  - same city / zone
+  - close to restaurant
+  - available
+  - good performance
+  - low workload
+- create dispatch attempts
+- send mission requests
+
+4. Driver accepts mission
+- first accepted driver wins
+- lock assignment
+- update order to DRIVER_ASSIGNED
+- set AWAITING_CUSTOMER_CONFIRMATION
+
+5. Driver confirms customer details
+Driver can submit:
+- confirmed
+- needs correction
+- failed confirmation
+
+If confirmed:
+- update order to CONFIRMED_FOR_PREPARATION
+
+If needs correction:
+- update order to NEEDS_UPDATE
+
+If failed:
+- update order to CONFIRMATION_FAILED
+
+6. Restaurant starts preparation
+- only possible after CONFIRMED_FOR_PREPARATION
+- then PREPARING
+- then READY_FOR_PICKUP
+
+7. Driver picks up order
+- PICKED_UP
+- ON_THE_WAY
+- ARRIVING_SOON
+
+8. Delivery completion
+- QR verification comes later in the next step
+- but prepare status flow toward DELIVERED
+
+==================================================
+DISPATCH LOGIC
+==================================================
+
+Implement a dispatch service/module with:
+- candidate driver selection
+- dispatch attempts
+- assignment locking
+- timeout support
+- fallback retry support
+- manual admin override support
+
+Each order should have dispatch logs showing:
+- which drivers were notified
+- acceptance result
+- timestamps
+- fallback attempts
+
+==================================================
+DRIVER ASSIGNMENT RULES
+==================================================
+
+A driver can only be assigned if:
+- approved
+- online
+- available
+- belongs to the correct zone/city
+- is reasonably close to restaurant
+- is not overloaded
+
+Prepare scoring logic based on:
+- proximity
+- rating
+- average delivery time
+- acceptance rate
+- active workload
+
+==================================================
+RESTAURANT LOCK LOGIC
+==================================================
+
+In restaurant dashboard:
+- order must display as “waiting for confirmation”
+- start preparation button must be disabled before confirmation
+- after confirmation, the button becomes active
+- UI must make this obvious
+
+==================================================
+CUSTOMER UPDATE FLOW
+==================================================
+
+If order status becomes NEEDS_UPDATE:
+- allow a correction flow
+- customer can update address notes / landmark / phone details
+- support/admin can review updates
+- order can be re-attempted for confirmation
+
+==================================================
+ADMIN OVERRIDE
+==================================================
+
+Allow admin to:
+- manually assign a driver
+- manually move an order to review
+- manually cancel an order
+- manually retry dispatch
+- manually approve continuation after a special case
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+In this step:
+1. generate services/modules for order state machine
+2. generate dispatch logic foundation
+3. generate driver assignment logic
+4. generate order history logging
+5. generate restaurant lock logic
+6. generate customer correction flow
+7. update dashboards to reflect workflow
+8. keep code modular and scalable
+
+This step is about operational logic first.

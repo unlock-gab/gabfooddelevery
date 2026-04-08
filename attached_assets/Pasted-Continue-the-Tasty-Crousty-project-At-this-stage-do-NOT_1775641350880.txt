@@ -1,0 +1,299 @@
+Continue the Tasty Crousty project.
+
+At this stage, do NOT try to finalize everything at once.
+
+Focus now on building the **core application architecture**, **database foundation**, **role system**, and **admin foundation** in a clean, scalable, production-minded way.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Build the solid foundation of the platform:
+- application structure
+- route structure
+- role-based access system
+- Prisma PostgreSQL schema
+- main enums and relationships
+- admin dashboard architecture
+- shared UI system
+- seed-ready data structure
+
+This step is about structure first, not visual polish first.
+
+==================================================
+ARCHITECTURE REQUIREMENTS
+==================================================
+
+Use:
+- Next.js with App Router
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- Prisma
+- PostgreSQL
+- React Hook Form
+- Zod
+- modular folder structure
+
+Create a scalable folder structure for:
+- app routes
+- dashboard routes by role
+- shared components
+- shared UI
+- server actions / services
+- Prisma
+- utilities
+- localization
+- mock/demo data
+- hooks
+- table configurations
+- status helpers
+
+==================================================
+ROUTE STRUCTURE
+==================================================
+
+Create and organize routes for:
+
+Public:
+- /
+- /restaurants
+- /restaurants/[slug]
+- /cart
+- /checkout
+- /track/[orderId]
+- /login
+- /register
+
+Customer:
+- /account
+- /account/orders
+- /account/orders/[id]
+- /account/addresses
+- /account/settings
+
+Restaurant dashboard:
+- /restaurant
+- /restaurant/orders
+- /restaurant/orders/[id]
+- /restaurant/menu
+- /restaurant/categories
+- /restaurant/settings
+- /restaurant/analytics
+
+Driver dashboard:
+- /driver
+- /driver/missions
+- /driver/orders/[id]
+- /driver/history
+- /driver/settings
+
+Admin dashboard:
+- /admin
+- /admin/orders
+- /admin/orders/[id]
+- /admin/restaurants
+- /admin/restaurants/[id]
+- /admin/drivers
+- /admin/drivers/[id]
+- /admin/customers
+- /admin/customers/[id]
+- /admin/cities
+- /admin/zones
+- /admin/dispatch
+- /admin/confirmations
+- /admin/fraud
+- /admin/ratings
+- /admin/payments
+- /admin/settings
+
+==================================================
+AUTH + ROLE SYSTEM
+==================================================
+
+Implement a secure authentication and authorization foundation with support for:
+- customer
+- restaurant
+- driver
+- admin
+
+Prepare internal permission support for future admin subroles:
+- super_admin
+- operations_manager
+- dispatcher
+- support_agent
+
+Requirements:
+- route guards by role
+- protected layouts by role
+- role-based navigation
+- unauthorized fallback pages
+- auth-ready middleware structure
+- reusable permission helpers
+
+==================================================
+DATABASE FOUNDATION
+==================================================
+
+Build a clean Prisma schema with strong normalization and scalability.
+
+Create the following models and relationships:
+
+Core identity:
+- User
+- CustomerProfile
+- RestaurantProfile
+- DriverProfile
+- AdminProfile
+
+Geography:
+- City
+- Zone
+- Address
+
+Restaurant side:
+- Restaurant
+- RestaurantHours
+- RestaurantZone
+- MenuCategory
+- Product
+- ProductOptionGroup
+- ProductOption
+- ProductAvailability
+
+Cart side:
+- Cart
+- CartItem
+- CartItemOption
+
+Order side:
+- Order
+- OrderItem
+- OrderItemOption
+- OrderStatusHistory
+
+Dispatch side:
+- DispatchAttempt
+- DriverAssignment
+- DriverLocationPing
+
+Delivery/security:
+- DeliveryConfirmation
+- QRDeliveryToken
+
+Commercial:
+- Payment
+- Transaction
+- Rating
+- Notification
+- FraudFlag
+- SupportTicket
+- PlatformSetting
+
+==================================================
+ENUMS
+==================================================
+
+Create enums for:
+- UserRole
+- AdminRole
+- OrderStatus
+- PaymentMethod
+- PaymentStatus
+- DriverAvailability
+- RestaurantAccountStatus
+- NotificationType
+- FraudSeverity
+- FraudEntityType
+- RatingTargetType
+- DispatchStatus
+- ConfirmationResult
+
+==================================================
+ORDER STATUS ENUM
+==================================================
+
+Use these order statuses:
+- DRAFT
+- PENDING_DISPATCH
+- DISPATCHING_DRIVER
+- DRIVER_ASSIGNED
+- AWAITING_CUSTOMER_CONFIRMATION
+- NEEDS_UPDATE
+- CONFIRMATION_FAILED
+- CONFIRMED_FOR_PREPARATION
+- PREPARING
+- READY_FOR_PICKUP
+- PICKED_UP
+- ON_THE_WAY
+- ARRIVING_SOON
+- DELIVERED
+- CANCELLED
+- FAILED
+- REFUNDED
+
+==================================================
+ADMIN FOUNDATION
+==================================================
+
+Build the structural foundation for the admin panel:
+- sidebar navigation
+- top header
+- overview page
+- reusable dashboard cards
+- reusable filters
+- reusable table layout
+- reusable detail page layout
+- reusable timeline block
+- reusable status badge system
+
+Create placeholder admin pages for all major sections with realistic structure and sample widgets.
+
+==================================================
+FRENCH + ARABIC FOUNDATION
+==================================================
+
+Set up i18n foundation with:
+- French as default
+- Arabic as secondary
+- language switcher component
+- translation file structure
+- RTL support for Arabic
+- LTR support for French
+
+At this stage:
+- structure the translation system properly
+- translate core navigation and shared UI labels first
+
+==================================================
+SEED PREPARATION
+==================================================
+
+Prepare the schema and app to support seed data for:
+- cities
+- zones
+- users in all roles
+- restaurants
+- menu items
+- drivers
+- sample orders
+- fraud flags
+- ratings
+- notifications
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+In this step:
+1. generate the project structure
+2. generate Prisma schema
+3. generate route/layout structure
+4. generate auth/role guards foundation
+5. generate admin dashboard shell
+6. generate shared components foundation
+7. generate localization foundation
+8. prepare the app for the next step
+
+Do not over-focus on final styling yet.
+Focus on strong scalable architecture and clean implementation.

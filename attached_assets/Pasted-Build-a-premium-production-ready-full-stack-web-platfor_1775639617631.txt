@@ -1,0 +1,873 @@
+Build a premium, production-ready, full-stack web platform called **Tasty Crousty**.
+
+This project is a **smart food ordering and delivery platform** with a unique operational logic:
+**restaurants do NOT begin preparation immediately after an order is placed**.
+Preparation only starts **after a driver is assigned and the customer’s delivery details are confirmed**.
+
+The platform must be designed as a serious startup-grade product, not a demo app.
+
+==================================================
+CORE PRODUCT POSITIONING
+==================================================
+
+Tasty Crousty is not a basic delivery app.
+
+It is a **loss-prevention delivery platform** designed to:
+- reduce order cancellations
+- reduce fake orders
+- reduce restaurant waste
+- improve delivery reliability
+- validate real customer intent before food preparation begins
+
+Main concept:
+1. Customer places an order
+2. Restaurant receives the order but preparation is locked
+3. System dispatches nearby drivers
+4. First driver who accepts is assigned
+5. Driver validates the address and order details with the customer
+6. Only after successful confirmation does the restaurant start preparing
+7. Driver picks up the order
+8. Customer tracks delivery in real time
+9. Delivery is completed securely with QR code verification
+
+==================================================
+OFFICIAL LANGUAGES / LOCALIZATION
+==================================================
+
+The platform must support **multi-language architecture** with:
+- **French as the default language**
+- **Arabic as the secondary language**
+- easy language switching in the UI
+- RTL support for Arabic
+- LTR support for French
+- scalable i18n structure for future languages
+
+Requirements:
+- all text content must be translatable
+- menus, dashboard labels, buttons, statuses, alerts, forms, notifications, and validation messages must support i18n
+- the default UI must load in French
+- Arabic must be available from the language switcher
+- layout should adapt correctly when Arabic is selected
+
+==================================================
+TECH STACK
+==================================================
+
+Use a modern scalable architecture with:
+
+- Frontend: React + TypeScript
+- Framework: Next.js (App Router preferred)
+- Styling: Tailwind CSS
+- UI Components: shadcn/ui
+- Icons: lucide-react
+- Database: PostgreSQL
+- ORM: Prisma
+- Authentication: secure role-based authentication
+- Real-time updates: WebSockets / Pusher-style realtime / Supabase realtime-compatible structure
+- Forms: React Hook Form + Zod validation
+- Charts: Recharts
+- QR generation: QR code library
+- QR scanning placeholder architecture for driver delivery confirmation
+- Map-ready architecture for driver tracking and zones
+- Clean modular architecture
+- Responsive mobile-first design
+- Production-minded folder structure
+
+==================================================
+MAIN USER ROLES
+==================================================
+
+The platform has 4 major roles:
+
+1. Customer
+2. Restaurant
+3. Driver
+4. Admin
+
+Also prepare internal permission architecture so the admin area can later support:
+- Super Admin
+- Operations Manager
+- Support Agent
+- Dispatcher
+
+==================================================
+ROLE CAPABILITIES
+==================================================
+
+1) CUSTOMER
+Customer can:
+- register / login
+- browse restaurants by city and zone
+- search restaurants
+- filter by category, rating, delivery time, availability
+- view restaurant details
+- view menu
+- choose products
+- choose options, sauces, extras, supplements
+- add products to cart
+- manage cart
+- checkout
+- select city / zone
+- enter delivery address with landmark, floor, instructions, phone
+- choose payment method
+- view total price
+- view estimated delivery time
+- place order
+- track order in real time
+- receive order status notifications
+- view delivery QR code
+- access order history
+- re-order previous orders
+- rate restaurant and driver after delivery
+- manage profile, addresses, preferences, language
+
+2) RESTAURANT
+Restaurant can:
+- register and wait for admin approval
+- manage profile
+- upload logo / cover
+- manage business info
+- set open / closed state
+- configure working hours
+- manage delivery zones
+- manage menu categories
+- manage products
+- manage product options and extras
+- define estimated preparation times
+- receive incoming orders
+- see orders waiting for driver assignment / confirmation
+- clearly see that preparation is locked before confirmation
+- start preparing only after system unlocks the order
+- mark order as preparing
+- mark order as ready for pickup
+- view active and past orders
+- view ratings and performance summaries
+
+3) DRIVER
+Driver can:
+- register and wait for admin approval
+- upload required info/documents placeholders
+- set online / offline status
+- receive nearby mission requests
+- accept mission
+- become assigned to an order
+- view pickup restaurant details
+- view customer summary
+- perform customer confirmation step
+- mark confirmation result:
+  - confirmed
+  - needs correction
+  - unreachable / failed
+- receive navigation-ready data
+- mark arrival at restaurant
+- mark order picked up
+- send live location updates
+- mark on the way
+- mark arriving soon
+- scan customer QR code on delivery
+- complete order
+- view earnings / delivery history / ratings
+
+4) ADMIN
+Admin can:
+- manage all users
+- approve / reject restaurants
+- approve / reject drivers
+- manage customers
+- manage cities
+- manage zones
+- manage restaurants
+- manage drivers
+- manage orders
+- monitor dispatch attempts
+- manually assign drivers
+- view suspicious orders
+- handle disputes
+- view analytics
+- manage ratings
+- manage settings
+- configure commissions
+- configure dispatch logic
+- configure notification rules
+- manage translations placeholders / content structure
+
+==================================================
+PRODUCT WORKFLOW / ORDER LOGIC
+==================================================
+
+This is the most important logic in the whole system.
+
+The restaurant must NOT start preparing as soon as the order is placed.
+
+The order must follow this flow:
+
+STEP 1 — CUSTOMER CREATES ORDER
+- customer selects city / zone
+- customer selects restaurant
+- customer adds products and options
+- system calculates total amount
+- system calculates estimated time
+- customer confirms order
+- create order in status: pending_dispatch
+
+STEP 2 — RESTAURANT IS NOTIFIED BUT PREPARATION IS LOCKED
+- restaurant receives real-time notification
+- restaurant sees full order information
+- restaurant sees customer address and notes
+- restaurant sees a clear visual warning:
+  “Waiting for driver confirmation before preparation”
+- restaurant cannot start preparing yet
+
+STEP 3 — SMART DRIVER DISPATCH
+- system selects drivers based on:
+  - proximity to restaurant
+  - availability
+  - active zone
+  - rating
+  - average delivery time
+  - acceptance rate
+  - current workload
+- notify only relevant nearby drivers
+- first driver who accepts becomes assigned
+- assignment is locked for others
+
+STEP 4 — DRIVER PERFORMS CUSTOMER CONFIRMATION
+- assigned driver confirms with customer:
+  - exact address
+  - landmark / building / floor
+  - phone accessibility
+  - order clarity
+- driver chooses one result:
+  1. confirmed
+  2. needs correction
+  3. failed / unreachable customer
+
+IF confirmed:
+- order goes to confirmed_for_preparation
+
+IF needs correction:
+- order goes to needs_update
+- customer or support can update order details
+
+IF failed:
+- order goes to confirmation_failed
+- restaurant must not prepare
+
+STEP 5 — PREPARATION STARTS ONLY AFTER CONFIRMATION
+- once the order is confirmed, restaurant gets a strong real-time approval signal
+- restaurant can now start preparing
+- order goes to preparing
+- when ready, restaurant marks ready_for_pickup
+
+STEP 6 — PICKUP AND DELIVERY
+- driver marks picked_up
+- status becomes picked_up
+- then on_the_way
+- then arriving_soon
+
+STEP 7 — REAL-TIME TRACKING
+- customer sees:
+  - live delivery progress
+  - ETA
+  - driver name
+  - driver status
+- platform sends notifications for:
+  - order received
+  - waiting for driver
+  - driver assigned
+  - order confirmed
+  - order being prepared
+  - order ready
+  - driver picked up order
+  - driver on the way
+  - driver arriving soon
+  - order delivered
+
+STEP 8 — SECURE DELIVERY WITH QR CODE
+- customer has a QR code in order details
+- at arrival, driver scans the QR code
+- QR scan confirms successful delivery handoff
+- order becomes delivered
+- payment validation / settlement logic can be triggered after this
+
+==================================================
+STRICT ORDER STATUS SYSTEM
+==================================================
+
+Implement a strict order state machine with the following statuses:
+
+- draft
+- pending_dispatch
+- dispatching_driver
+- driver_assigned
+- awaiting_customer_confirmation
+- needs_update
+- confirmation_failed
+- confirmed_for_preparation
+- preparing
+- ready_for_pickup
+- picked_up
+- on_the_way
+- arriving_soon
+- delivered
+- cancelled
+- failed
+- refunded
+
+Requirements:
+- every status must have timestamps
+- every status transition must be logged
+- invalid transitions must be blocked
+- each role should see appropriate action buttons depending on the current status
+- build reusable status badge components
+- build reusable order timeline components
+
+==================================================
+SMART DISPATCH ENGINE
+==================================================
+
+Build dispatch logic prepared for scalability.
+
+Dispatch rules:
+- driver must be close to the restaurant, not only to the customer
+- driver must be active and available
+- driver must belong to the correct city / zone
+- prioritize drivers using:
+  - shortest distance
+  - best rating
+  - best average delivery speed
+  - best acceptance rate
+  - lowest current workload
+
+Add support for:
+- dispatch timeout
+- fallback dispatch if no driver accepts
+- wider radius retry
+- manual admin assignment
+- dispatch attempt history
+- dispatch logs for each order
+
+==================================================
+FRAUD PREVENTION / RISK SYSTEM
+==================================================
+
+This project must include anti-fraud foundations.
+
+Implement:
+- suspicious customer flags
+- repeated cancellation detection
+- repeated unreachable customer detection
+- failed confirmation history
+- delivery dispute flags
+- restaurant early-preparation violation tracking
+- suspicious driver behavior tracking
+
+Add a simple customer risk score based on:
+- cancellations count
+- unreachable count
+- failed confirmations
+- disputes count
+
+Risk levels:
+- low
+- medium
+- high
+
+Show fraud / risk indicators in admin.
+
+==================================================
+DATABASE DESIGN
+==================================================
+
+Create a robust PostgreSQL schema using Prisma.
+
+Include at minimum these models:
+
+- User
+- Role / role enum
+- CustomerProfile
+- RestaurantProfile
+- DriverProfile
+- AdminProfile
+- City
+- Zone
+- Address
+- Restaurant
+- RestaurantHours
+- RestaurantZone
+- MenuCategory
+- Product
+- ProductOptionGroup
+- ProductOption
+- ProductAvailability
+- Cart
+- CartItem
+- CartItemOption
+- Order
+- OrderItem
+- OrderItemOption
+- OrderStatusHistory
+- DispatchAttempt
+- DriverAssignment
+- DriverLocationPing
+- DeliveryConfirmation
+- QRDeliveryToken
+- Payment
+- Transaction
+- Rating
+- Notification
+- FraudFlag
+- SupportTicket
+- PlatformSetting
+- TranslationKey or translation-ready content structure
+
+Requirements:
+- clear role separation
+- timestamps everywhere
+- enums where useful
+- indexes for performance on high-volume fields
+- soft delete where appropriate
+- normalized structure
+- future-proof relationships
+
+Include useful enums such as:
+- user role
+- order status
+- payment method
+- payment status
+- driver availability
+- restaurant status
+- fraud severity
+- rating target type
+- notification type
+
+==================================================
+ADMIN PANEL — COMPLETE STRUCTURE
+==================================================
+
+Build a premium admin dashboard with a modern startup operations look.
+
+Sections:
+
+1. Overview Dashboard
+- total orders
+- active deliveries
+- pending driver assignments
+- pending confirmations
+- preparing orders
+- delivered orders
+- cancelled orders
+- revenue
+- restaurants count
+- drivers count
+- online drivers
+- conversion metrics
+- failure metrics
+- quick alerts
+
+2. Orders Management
+- full orders table
+- search by order ID, customer, restaurant, driver
+- filter by status, city, zone, date, payment status
+- view full order detail page
+- order timeline
+- dispatch logs
+- confirmation logs
+- QR delivery status
+- fraud flags
+- manual reassignment
+- manual cancellation
+- support notes
+
+3. Restaurants Management
+- restaurant list
+- approval queue
+- status controls
+- zone assignment
+- open/closed state
+- commission configuration
+- restaurant performance
+- average preparation time
+- ratings
+- reliability metrics
+
+4. Drivers Management
+- driver approval queue
+- online/offline monitoring
+- active mission monitoring
+- acceptance rate
+- average delivery time
+- rating
+- failed confirmation count
+- city / zone assignment
+- account status
+
+5. Customers Management
+- customer profiles
+- order history
+- cancellation rate
+- risk score
+- fraud flags
+- account status
+- address overview
+
+6. Cities and Zones
+- create/edit/delete cities
+- create/edit/delete zones
+- zone activation / deactivation
+- assign restaurants to zones
+- assign drivers to zones
+- configure delivery fees or time references
+
+7. Dispatch Center
+- live dispatch monitoring
+- timeout handling
+- fallback dispatch visibility
+- manual assignment tools
+- dispatch analytics
+
+8. Confirmation Center
+- orders awaiting customer confirmation
+- failed confirmations
+- needs update queue
+- manual review actions
+
+9. Fraud & Disputes
+- suspicious accounts
+- flagged orders
+- repeated failed deliveries
+- disputes management
+- case notes
+
+10. Ratings & Reviews
+- review moderation
+- negative reviews
+- quality insights
+
+11. Payments & Commissions
+- payment records
+- COD vs online payment stats
+- restaurant commissions
+- driver payouts placeholder structure
+- refunds
+
+12. Notifications
+- notification logs
+- failed notifications
+- template-ready architecture
+
+13. Settings
+- dispatch radius
+- timeout rules
+- platform fees
+- order cancellation settings
+- QR validation settings
+- notification rules
+- platform branding
+- language / localization settings placeholders
+
+==================================================
+RESTAURANT DASHBOARD
+==================================================
+
+Build a professional restaurant dashboard with:
+
+- overview cards
+- incoming orders
+- waiting for confirmation queue
+- locked preparation indicator
+- preparing queue
+- ready for pickup queue
+- completed orders
+- cancelled orders
+- menu management
+- category management
+- product options management
+- working hours management
+- profile settings
+- ratings summary
+- restaurant performance insights
+
+The dashboard must clearly communicate when an order is:
+- not ready for preparation yet
+- unlocked for preparation
+- ready for pickup
+
+==================================================
+DRIVER DASHBOARD / DRIVER APP EXPERIENCE
+==================================================
+
+Build a mobile-first driver interface with:
+
+- online / offline toggle
+- available / busy state
+- mission request cards
+- accept mission button
+- confirmation workflow UI
+- pickup details
+- customer summary
+- live order progress
+- QR scan delivery confirmation placeholder
+- order history
+- earnings summary placeholder
+- ratings summary
+
+The driver UI should be optimized primarily for phone screens.
+
+==================================================
+CUSTOMER-FACING WEBSITE
+==================================================
+
+Build a premium public-facing website and customer app-like experience.
+
+Pages / sections:
+- homepage
+- city / zone selection
+- restaurant listing page
+- restaurant details page
+- cart page
+- checkout page
+- live order tracking page
+- QR order page
+- profile page
+- saved addresses page
+- order history page
+- ratings prompt after delivery
+- login / register pages
+
+Homepage should include:
+- premium hero section
+- value proposition
+- how it works
+- featured restaurants
+- benefits for customers
+- benefits for restaurants
+- benefits for drivers
+- CTA sections
+- language switcher
+- responsive footer
+
+==================================================
+UI / UX DIRECTION
+==================================================
+
+The visual style must feel:
+- premium
+- modern
+- conversion-oriented
+- polished
+- operationally clear
+- startup-grade
+
+Use:
+- strong hierarchy
+- spacious layout
+- excellent mobile responsiveness
+- clean cards
+- subtle shadows
+- rounded-2xl components
+- polished status chips
+- rich timeline UI
+- clean tables
+- elegant dashboards
+- high-end delivery-tech aesthetic
+
+Colors:
+- choose a premium palette suitable for food-tech
+- default French-first interface
+- keep Arabic mode visually correct and elegant
+- make status colors intuitive and professional
+
+Build reusable components for:
+- buttons
+- forms
+- input fields
+- select menus
+- language switcher
+- status badges
+- timeline blocks
+- cards
+- dashboard widgets
+- tables
+- filters
+- notifications
+- modals
+- QR code display blocks
+
+==================================================
+AUTHENTICATION / SECURITY
+==================================================
+
+Implement:
+- secure login/register
+- role-based route protection
+- admin route protection
+- restaurant route protection
+- driver route protection
+- customer authenticated flows
+- secure session handling
+- validation on all critical forms
+- proper backend authorization
+- protected order actions by role
+
+==================================================
+REAL-TIME FEATURES
+==================================================
+
+Implement real-time-ready architecture for:
+- new order notifications
+- restaurant order updates
+- driver mission requests
+- order status changes
+- admin dashboard live metrics placeholders
+- customer live order tracking
+- driver location pings
+- confirmation status changes
+
+==================================================
+PAYMENTS
+==================================================
+
+Prepare architecture for:
+- cash on delivery
+- online payment placeholder integration
+- payment status tracking
+- refund state
+- delivery completion payment validation logic
+
+Use payment states such as:
+- pending
+- authorized
+- paid
+- failed
+- refunded
+- cash_on_delivery
+
+==================================================
+NOTIFICATIONS
+==================================================
+
+Support notifications for:
+- customer
+- restaurant
+- driver
+- admin
+
+Notification channels architecture:
+- in-app
+- email placeholder
+- SMS placeholder
+- push placeholder
+
+Examples:
+- order placed
+- driver requested
+- driver assigned
+- confirmation complete
+- correction needed
+- preparation started
+- ready for pickup
+- picked up
+- on the way
+- arriving soon
+- delivered
+- cancelled
+- failed
+
+==================================================
+ANALYTICS
+==================================================
+
+Add analytics widgets and structures for:
+- order volume
+- cancellation rate
+- failed confirmation rate
+- average dispatch time
+- average preparation time
+- average delivery time
+- restaurant performance
+- driver performance
+- customer repeat rate
+- city / zone performance
+
+==================================================
+SEED DATA
+==================================================
+
+Create a robust seed script with demo data:
+- 2 cities
+- multiple zones
+- multiple restaurants
+- restaurant categories
+- menu items with options
+- sample customers
+- sample drivers
+- sample admins
+- sample orders in various statuses
+- ratings
+- notifications
+- fraud flags
+- different UI states for testing dashboards
+
+==================================================
+FOLDER STRUCTURE / CODE QUALITY
+==================================================
+
+Use a clean scalable folder structure.
+
+Requirements:
+- modular architecture
+- reusable services
+- reusable components
+- reusable hooks
+- server/client separation where appropriate
+- avoid huge monolithic files
+- use TypeScript everywhere
+- use Prisma migrations
+- use descriptive naming
+- include loading states
+- include empty states
+- include error states
+- include skeletons where useful
+- include toast notifications
+- keep code readable and maintainable
+
+==================================================
+IMPORTANT IMPLEMENTATION RULE
+==================================================
+
+Do NOT build this as a normal instant-delivery app.
+
+The defining business rule is:
+**Restaurant preparation begins only after driver assignment and successful customer confirmation.**
+
+This rule must be enforced in:
+- backend logic
+- status transitions
+- restaurant UI
+- admin controls
+- notifications
+- database history
+
+==================================================
+DELIVERABLES
+==================================================
+
+Generate:
+1. Full project architecture
+2. PostgreSQL Prisma schema
+3. Authentication system with role-based access
+4. Customer-facing website and flows
+5. Restaurant dashboard
+6. Driver dashboard
+7. Admin dashboard
+8. Order state machine logic
+9. Dispatch logic foundation
+10. Fraud flag foundation
+11. QR code delivery confirmation flow
+12. Seed script
+13. Example demo data
+14. French default UI with Arabic support
+15. Clean, premium UI across all areas
+
+Start by generating the complete project structure, database schema, route structure, shared UI system, and the first set of core pages and dashboards.

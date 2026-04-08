@@ -1,0 +1,149 @@
+Continue the Tasty Crousty project.
+
+Now focus on building the real product interfaces for the three operational sides:
+- customer experience
+- restaurant dashboard experience
+- driver experience
+
+The UI must feel premium, realistic, and startup-grade.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Build polished and practical interfaces for:
+1. customer-facing ordering flow
+2. restaurant order management flow
+3. driver mission and delivery flow
+
+==================================================
+CUSTOMER EXPERIENCE
+==================================================
+
+Build or improve these pages:
+- homepage
+- city/zone selector
+- restaurant listing page
+- restaurant detail page
+- menu browsing
+- cart page
+- checkout page
+- order tracking page
+- account pages
+- order history
+- order detail page
+- QR page placeholder
+
+Requirements:
+- premium modern design
+- clean spacing
+- excellent mobile UX
+- French first
+- Arabic support
+- easy ordering flow
+- clear restaurant cards
+- beautiful menu UI
+- strong cart summary
+- clear checkout sections
+- modern order tracking timeline
+
+Homepage should include:
+- hero section
+- key value proposition
+- “how it works”
+- featured restaurants
+- customer benefits
+- restaurant partnership CTA
+- driver CTA
+- footer
+- language switcher
+
+==================================================
+RESTAURANT DASHBOARD EXPERIENCE
+==================================================
+
+Build a strong restaurant dashboard with:
+- summary cards
+- incoming orders
+- waiting for driver/customer confirmation queue
+- preparing queue
+- ready-for-pickup queue
+- completed/cancelled history
+- order detail page
+- menu management
+- category management
+- product options management
+- hours/settings pages
+- analytics cards
+
+Requirements:
+- make the locked-preparation concept visually obvious
+- show statuses clearly
+- show order actions based on status
+- make the dashboard operationally easy to scan
+
+==================================================
+DRIVER EXPERIENCE
+==================================================
+
+Build a mobile-first driver interface:
+- online/offline toggle
+- available/busy status
+- mission cards
+- accept mission flow
+- customer confirmation page
+- pickup details page
+- active delivery page
+- delivery progress states
+- history page
+- settings/profile page
+- earnings placeholder page
+
+Requirements:
+- optimize mostly for smartphone screens
+- big buttons
+- clear actions
+- clean navigation
+- mission urgency feel
+- confirmation forms
+- live order progress visualization
+
+==================================================
+SHARED UI COMPONENTS
+==================================================
+
+Create reusable components for:
+- language switcher
+- order cards
+- order timeline
+- status badges
+- metric cards
+- filters
+- search bars
+- action modals
+- confirmation blocks
+- dashboard page headers
+- empty states
+- loading skeletons
+- toast feedback
+
+==================================================
+TRANSLATION REQUIREMENTS
+==================================================
+
+Translate customer-facing core UI into polished French first.
+Add Arabic translations for the same core experience.
+Make sure RTL behavior works properly in key pages.
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+In this step:
+1. build/improve customer-facing UX
+2. build/improve restaurant dashboard UX
+3. build/improve driver dashboard UX
+4. improve responsive quality
+5. improve French and Arabic localization in these areas
+6. use reusable components
+7. make the product look premium and client-ready
