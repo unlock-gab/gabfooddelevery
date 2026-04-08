@@ -33,25 +33,38 @@ async function addStatusHistory(orderId: number, status: string, note?: string, 
 /**
  * Score a driver candidate for an order.
  * Higher score = better candidate.
+ * Factors: rating (40pts), acceptance (25pts), experience (15pts), zone match (15pts), base (5pts)
  */
 function scoreDriver(driver: {
   avgRating: number;
   acceptanceRate: number;
   totalDeliveries: number;
-}): number {
-  const ratingScore = (Number(driver.avgRating) / 5) * 40;          // 0–40 pts
-  const acceptanceScore = (Number(driver.acceptanceRate) / 100) * 30; // 0–30 pts
-  const experienceScore = Math.min(Number(driver.totalDeliveries) / 100, 1) * 20; // 0–20 pts
-  const baseScore = 10;                                               // base 10 pts
+  preferredZoneId?: number | null;
+  currentZoneId?: number | null;
+}, restaurantZoneId?: number | null): number {
+  const ratingScore     = (Number(driver.avgRating) / 5) * 40;              // 0–40 pts
+  const acceptanceScore = (Number(driver.acceptanceRate) / 100) * 25;        // 0–25 pts
+  const experienceScore = Math.min(Number(driver.totalDeliveries) / 100, 1) * 15; // 0–15 pts
+  const baseScore       = 5;                                                  // base 5 pts
 
-  return ratingScore + acceptanceScore + experienceScore + baseScore;
+  // Zone proximity bonus: driver currently in or prefers the restaurant's commune
+  let zoneScore = 0;
+  if (restaurantZoneId) {
+    if (driver.currentZoneId === restaurantZoneId) {
+      zoneScore = 15; // Currently in the same commune
+    } else if (driver.preferredZoneId === restaurantZoneId) {
+      zoneScore = 8;  // Prefers this commune but not currently there
+    }
+  }
+
+  return ratingScore + acceptanceScore + experienceScore + baseScore + zoneScore;
 }
 
 /**
  * Get candidate drivers for an order.
  * Filters: approved, online, available, not already assigned.
  */
-async function getCandidateDrivers(orderId: number, restaurantCityId: number | null): Promise<DriverCandidate[]> {
+async function getCandidateDrivers(orderId: number, restaurantCityId: number | null, restaurantZoneId?: number | null): Promise<DriverCandidate[]> {
   // Get drivers already notified (rejected or pending)
   const alreadyNotified = await db.select({ driverId: dispatchAttemptsTable.driverId })
     .from(dispatchAttemptsTable)
@@ -60,6 +73,23 @@ async function getCandidateDrivers(orderId: number, restaurantCityId: number | n
   const notifiedIds = alreadyNotified
     .map((a) => a.driverId)
     .filter((id): id is number => id !== null);
+
+  // Build driver filter conditions
+  const baseConditions = [
+    eq(driverProfilesTable.status, "approved"),
+    eq(driverProfilesTable.isOnline, true),
+    eq(driverProfilesTable.availability, "available"),
+  ] as any[];
+
+  // Restrict to drivers in the same wilaya (cityId) as the restaurant
+  if (restaurantCityId) {
+    baseConditions.push(eq(driverProfilesTable.cityId, restaurantCityId));
+  }
+
+  // Exclude already-notified drivers
+  if (notifiedIds.length > 0) {
+    baseConditions.push(not(inArray(usersTable.id, notifiedIds)));
+  }
 
   const drivers = await db.select({
     userId: usersTable.id,
@@ -70,17 +100,12 @@ async function getCandidateDrivers(orderId: number, restaurantCityId: number | n
     status: driverProfilesTable.status,
     isOnline: driverProfilesTable.isOnline,
     availability: driverProfilesTable.availability,
+    preferredZoneId: driverProfilesTable.preferredZoneId,
+    currentZoneId: driverProfilesTable.currentZoneId,
   })
     .from(driverProfilesTable)
     .innerJoin(usersTable, eq(driverProfilesTable.userId, usersTable.id))
-    .where(
-      and(
-        eq(driverProfilesTable.status, "approved"),
-        eq(driverProfilesTable.isOnline, true),
-        eq(driverProfilesTable.availability, "available"),
-        notifiedIds.length > 0 ? not(inArray(usersTable.id, notifiedIds)) : undefined,
-      ),
-    );
+    .where(and(...baseConditions));
 
   return drivers.map((d) => ({
     userId: d.userId,
@@ -88,7 +113,16 @@ async function getCandidateDrivers(orderId: number, restaurantCityId: number | n
     avgRating: Number(d.avgRating ?? 0),
     acceptanceRate: Number(d.acceptanceRate ?? 0),
     totalDeliveries: Number(d.totalDeliveries ?? 0),
-    score: scoreDriver(d),
+    score: scoreDriver(
+      {
+        avgRating: Number(d.avgRating ?? 0),
+        acceptanceRate: Number(d.acceptanceRate ?? 0),
+        totalDeliveries: Number(d.totalDeliveries ?? 0),
+        preferredZoneId: d.preferredZoneId,
+        currentZoneId: d.currentZoneId,
+      },
+      restaurantZoneId
+    ),
   })).sort((a, b) => b.score - a.score);
 }
 
@@ -101,6 +135,7 @@ export async function dispatchOrder(orderId: number): Promise<{ dispatched: bool
   const [order] = await db.select({
     order: ordersTable,
     restaurantCityId: restaurantsTable.cityId,
+    restaurantZoneId: restaurantsTable.zoneId,
   })
     .from(ordersTable)
     .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
@@ -109,7 +144,7 @@ export async function dispatchOrder(orderId: number): Promise<{ dispatched: bool
   if (!order) return { dispatched: false, candidates: 0 };
   if (order.order.driverId) return { dispatched: true, candidates: 0 }; // Already assigned
 
-  const candidates = await getCandidateDrivers(orderId, order.restaurantCityId ?? null);
+  const candidates = await getCandidateDrivers(orderId, order.restaurantCityId ?? null, order.restaurantZoneId ?? null);
 
   if (candidates.length === 0) {
     // No drivers available — keep as pending_dispatch, will retry

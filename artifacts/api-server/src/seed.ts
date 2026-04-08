@@ -18,14 +18,14 @@ import { db } from "@workspace/db";
 import {
   usersTable, citiesTable, zonesTable,
   restaurantsTable, menuCategoriesTable, productsTable,
-  customerProfilesTable, driverProfilesTable,
+  customerProfilesTable, driverProfilesTable, addressesTable,
   ordersTable, orderItemsTable, orderStatusHistoryTable, qrDeliveryTokensTable,
   ratingsTable, fraudFlagsTable, notificationsTable, paymentsTable, platformSettingsTable,
 } from "@workspace/db";
 import bcrypt from "bcryptjs";
 import { eq, sql } from "drizzle-orm";
 
-const SEED_VERSION = "v4";
+const SEED_VERSION = "v5";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -124,17 +124,6 @@ async function seed() {
   ]).returning();
 
   // ──────────────────────────────────────────────────────────
-  // DRIVER PROFILES
-  // ──────────────────────────────────────────────────────────
-  await db.insert(driverProfilesTable).values([
-    { userId: drv1.id, status: "approved", isOnline: true,  availability: "available" as any, avgRating: "4.92", acceptanceRate: "94.00", totalDeliveries: 312, earningsTotal: "187200.00" },
-    { userId: drv2.id, status: "approved", isOnline: true,  availability: "busy"      as any, avgRating: "4.80", acceptanceRate: "88.00", totalDeliveries: 185, earningsTotal: "111000.00" },
-    { userId: drv3.id, status: "approved", isOnline: false, availability: "offline"   as any, avgRating: "4.65", acceptanceRate: "76.00", totalDeliveries: 98,  earningsTotal: "58800.00" },
-    { userId: drv4.id, status: "approved", isOnline: true,  availability: "available" as any, avgRating: "4.88", acceptanceRate: "91.00", totalDeliveries: 221, earningsTotal: "132600.00" },
-    { userId: drv5.id, status: "pending",  isOnline: false, availability: "offline"   as any, avgRating: "0.00", acceptanceRate: "0.00",  totalDeliveries: 0,   earningsTotal: "0.00" },
-  ]);
-
-  // ──────────────────────────────────────────────────────────
   // CUSTOMER PROFILES
   // ──────────────────────────────────────────────────────────
   await db.insert(customerProfilesTable).values([
@@ -147,24 +136,132 @@ async function seed() {
   ]);
 
   // ──────────────────────────────────────────────────────────
-  // CITIES & ZONES
+  // CITIES & ZONES — Wilaya d'Alger (DZ-16) — 57 communes officielles
   // ──────────────────────────────────────────────────────────
   const [alger, oran, constantine] = await db.insert(citiesTable).values([
-    { name: "Alger",       nameAr: "الجزائر",    isActive: true },
-    { name: "Oran",        nameAr: "وهران",       isActive: true },
-    { name: "Constantine", nameAr: "قسنطينة",   isActive: true },
+    { name: "Alger",       nameAr: "الجزائر",  code: "DZ-16", isActive: true },
+    { name: "Oran",        nameAr: "وهران",     code: "DZ-31", isActive: true },
+    { name: "Constantine", nameAr: "قسنطينة",  code: "DZ-25", isActive: true },
   ]).returning();
 
-  const [zCentre, zBabElOued, zElBiar, zHydra, zKouba, zBirkhadem, zOranCentre, zConstCentre] = await db.insert(zonesTable).values([
-    { cityId: alger.id,       name: "Centre-Ville",  nameAr: "وسط المدينة",  deliveryFee: "200.00", estimatedMinutes: 20 },
-    { cityId: alger.id,       name: "Bab El Oued",   nameAr: "باب الواد",    deliveryFee: "250.00", estimatedMinutes: 25 },
-    { cityId: alger.id,       name: "El Biar",       nameAr: "البيار",       deliveryFee: "300.00", estimatedMinutes: 30 },
-    { cityId: alger.id,       name: "Hydra",         nameAr: "حيدرة",        deliveryFee: "350.00", estimatedMinutes: 35 },
-    { cityId: alger.id,       name: "Kouba",         nameAr: "القبة",        deliveryFee: "300.00", estimatedMinutes: 30 },
-    { cityId: alger.id,       name: "Birkhadem",     nameAr: "بئر خادم",    deliveryFee: "350.00", estimatedMinutes: 35 },
-    { cityId: oran.id,        name: "Centre-Ville",  nameAr: "وسط المدينة",  deliveryFee: "200.00", estimatedMinutes: 20 },
-    { cityId: constantine.id, name: "Centre-Ville",  nameAr: "وسط المدينة",  deliveryFee: "200.00", estimatedMinutes: 20 },
+  // ── 57 communes officielles de la Wilaya d'Alger ──────────────────────────
+  // Groupes de distance :
+  //   PROCHE  (1-13)  : 200-250 DA, 20-30 min
+  //   MOYEN  (14-39)  : 300-350 DA, 35-45 min
+  //   LOIN   (40-57)  : 400-500 DA, 50-60 min
+  const algerCommunesData = [
+    // ─── PROCHES ───────────────────────────────────────────────────────────────
+    { name: "Alger Centre",       nameAr: "الجزائر الوسطى",    slug: "alger-centre",       deliveryFee: "200.00", estimatedMinutes: 20, sortOrder: 1  },
+    { name: "Casbah",             nameAr: "القصبة",             slug: "casbah",             deliveryFee: "200.00", estimatedMinutes: 20, sortOrder: 2  },
+    { name: "Bab El Oued",        nameAr: "باب الواد",          slug: "bab-el-oued",        deliveryFee: "220.00", estimatedMinutes: 25, sortOrder: 3  },
+    { name: "Mohamed Belouizdad", nameAr: "محمد بلوزداد",      slug: "mohamed-belouizdad", deliveryFee: "220.00", estimatedMinutes: 25, sortOrder: 4  },
+    { name: "Sidi M'Hamed",       nameAr: "سيدي امحمد",        slug: "sidi-mhamed",        deliveryFee: "220.00", estimatedMinutes: 25, sortOrder: 5  },
+    { name: "El Madania",         nameAr: "المدنية",            slug: "el-madania",         deliveryFee: "230.00", estimatedMinutes: 25, sortOrder: 6  },
+    { name: "El Mouradia",        nameAr: "المرادية",           slug: "el-mouradia",        deliveryFee: "230.00", estimatedMinutes: 25, sortOrder: 7  },
+    { name: "Djasr Kasentina",    nameAr: "جسر قسنطينة",       slug: "djasr-kasentina",    deliveryFee: "240.00", estimatedMinutes: 25, sortOrder: 8  },
+    { name: "El Magharia",        nameAr: "المقرية",            slug: "el-magharia",        deliveryFee: "240.00", estimatedMinutes: 30, sortOrder: 9  },
+    { name: "Hussein Dey",        nameAr: "حسين داي",           slug: "hussein-dey",        deliveryFee: "240.00", estimatedMinutes: 30, sortOrder: 10 },
+    { name: "Mohammadia",         nameAr: "المحمدية",           slug: "mohammadia",         deliveryFee: "240.00", estimatedMinutes: 30, sortOrder: 11 },
+    { name: "Bourouba",           nameAr: "بوروبة",             slug: "bourouba",           deliveryFee: "250.00", estimatedMinutes: 30, sortOrder: 12 },
+    { name: "Bachdjerrah",        nameAr: "باش جراح",           slug: "bachdjerrah",        deliveryFee: "250.00", estimatedMinutes: 30, sortOrder: 13 },
+    // ─── MOYENS ───────────────────────────────────────────────────────────────
+    { name: "El Harrach",         nameAr: "الحراش",             slug: "el-harrach",         deliveryFee: "300.00", estimatedMinutes: 35, sortOrder: 14 },
+    { name: "Kouba",              nameAr: "القبة",              slug: "kouba",              deliveryFee: "300.00", estimatedMinutes: 35, sortOrder: 15 },
+    { name: "Bir Mourad Rais",    nameAr: "بئر مراد رايس",     slug: "bir-mourad-rais",    deliveryFee: "300.00", estimatedMinutes: 35, sortOrder: 16 },
+    { name: "Birkhadem",          nameAr: "بئر خادم",          slug: "birkhadem",          deliveryFee: "300.00", estimatedMinutes: 35, sortOrder: 17 },
+    { name: "El Biar",            nameAr: "الأبيار",            slug: "el-biar",            deliveryFee: "300.00", estimatedMinutes: 35, sortOrder: 18 },
+    { name: "Hydra",              nameAr: "حيدرة",              slug: "hydra",              deliveryFee: "310.00", estimatedMinutes: 35, sortOrder: 19 },
+    { name: "Ben Aknoun",         nameAr: "بن عكنون",           slug: "ben-aknoun",         deliveryFee: "310.00", estimatedMinutes: 35, sortOrder: 20 },
+    { name: "Dely Ibrahim",       nameAr: "دالي إبراهيم",      slug: "dely-ibrahim",       deliveryFee: "310.00", estimatedMinutes: 40, sortOrder: 21 },
+    { name: "Oued Koreiche",      nameAr: "واد قريش",          slug: "oued-koreiche",      deliveryFee: "320.00", estimatedMinutes: 40, sortOrder: 22 },
+    { name: "Bouzareah",          nameAr: "بوزريعة",            slug: "bouzareah",          deliveryFee: "320.00", estimatedMinutes: 40, sortOrder: 23 },
+    { name: "Beni Messous",       nameAr: "بني مسوس",          slug: "beni-messous",       deliveryFee: "320.00", estimatedMinutes: 40, sortOrder: 24 },
+    { name: "Cheraga",            nameAr: "الشراقة",            slug: "cheraga",            deliveryFee: "320.00", estimatedMinutes: 40, sortOrder: 25 },
+    { name: "Bologhine",          nameAr: "بولوغين",            slug: "bolghine",           deliveryFee: "320.00", estimatedMinutes: 35, sortOrder: 26 },
+    { name: "El Achour",          nameAr: "العاشور",            slug: "el-achour",          deliveryFee: "330.00", estimatedMinutes: 40, sortOrder: 27 },
+    { name: "Draria",             nameAr: "الدرارية",           slug: "draria",             deliveryFee: "330.00", estimatedMinutes: 40, sortOrder: 28 },
+    { name: "Bab Ezzouar",        nameAr: "باب الزوار",         slug: "bab-ezzouar",        deliveryFee: "330.00", estimatedMinutes: 40, sortOrder: 29 },
+    { name: "Oued Smar",          nameAr: "واد السمار",         slug: "oued-smar",          deliveryFee: "330.00", estimatedMinutes: 40, sortOrder: 30 },
+    { name: "Khraicia",           nameAr: "خرايسية",            slug: "khraicia",           deliveryFee: "340.00", estimatedMinutes: 40, sortOrder: 31 },
+    { name: "Saoula",             nameAr: "السحاولة",           slug: "saoula",             deliveryFee: "340.00", estimatedMinutes: 45, sortOrder: 32 },
+    { name: "Dar El Beida",       nameAr: "الدار البيضاء",      slug: "dar-el-beida",       deliveryFee: "340.00", estimatedMinutes: 40, sortOrder: 33 },
+    { name: "Hraoua",             nameAr: "هراوة",              slug: "hraoua",             deliveryFee: "340.00", estimatedMinutes: 45, sortOrder: 34 },
+    { name: "Bordj El Kiffan",    nameAr: "برج الكيفان",        slug: "bordj-el-kiffan",    deliveryFee: "350.00", estimatedMinutes: 45, sortOrder: 35 },
+    { name: "Rais Hamidou",       nameAr: "الرايس حميدو",       slug: "rais-hamidou",       deliveryFee: "350.00", estimatedMinutes: 45, sortOrder: 36 },
+    { name: "Mahelma",            nameAr: "المعالمة",           slug: "mahelma",            deliveryFee: "350.00", estimatedMinutes: 45, sortOrder: 37 },
+    { name: "Aïn Taya",           nameAr: "عين طاية",           slug: "ain-taya",           deliveryFee: "350.00", estimatedMinutes: 45, sortOrder: 38 },
+    { name: "Hammamet",           nameAr: "الحمامات",           slug: "hammamet",           deliveryFee: "350.00", estimatedMinutes: 45, sortOrder: 39 },
+    // ─── LOINTAINS ────────────────────────────────────────────────────────────
+    { name: "Baraki",             nameAr: "براقي",              slug: "baraki",             deliveryFee: "400.00", estimatedMinutes: 50, sortOrder: 40 },
+    { name: "Les Eucalyptus",     nameAr: "الكاليتوس",         slug: "les-eucalyptus",     deliveryFee: "400.00", estimatedMinutes: 50, sortOrder: 41 },
+    { name: "Sidi Moussa",        nameAr: "سيدي موسى",          slug: "sidi-moussa",        deliveryFee: "400.00", estimatedMinutes: 50, sortOrder: 42 },
+    { name: "Baba Hassen",        nameAr: "بابا حسن",           slug: "baba-hassen",        deliveryFee: "400.00", estimatedMinutes: 50, sortOrder: 43 },
+    { name: "Ouled Chebel",       nameAr: "أولاد شبل",          slug: "ouled-chebel",       deliveryFee: "420.00", estimatedMinutes: 50, sortOrder: 44 },
+    { name: "Souidania",          nameAr: "السويدانية",         slug: "souidania",          deliveryFee: "420.00", estimatedMinutes: 50, sortOrder: 45 },
+    { name: "Douera",             nameAr: "الدويرة",            slug: "douera",             deliveryFee: "420.00", estimatedMinutes: 50, sortOrder: 46 },
+    { name: "Staoueli",           nameAr: "اسطاوالي",           slug: "staoueli",           deliveryFee: "430.00", estimatedMinutes: 50, sortOrder: 47 },
+    { name: "Ouled Fayet",        nameAr: "أولاد فايت",         slug: "ouled-fayet",        deliveryFee: "430.00", estimatedMinutes: 55, sortOrder: 48 },
+    { name: "Tessala El Merdja",  nameAr: "تسالة المرجة",       slug: "tessala-el-merdja",  deliveryFee: "440.00", estimatedMinutes: 55, sortOrder: 49 },
+    { name: "Birtouta",           nameAr: "بئر توتة",           slug: "birtouta",           deliveryFee: "440.00", estimatedMinutes: 55, sortOrder: 50 },
+    { name: "Zeralda",            nameAr: "زرالدة",             slug: "zeralda",            deliveryFee: "450.00", estimatedMinutes: 55, sortOrder: 51 },
+    { name: "Rahmania",           nameAr: "الرحمانية",          slug: "rahmania",           deliveryFee: "450.00", estimatedMinutes: 55, sortOrder: 52 },
+    { name: "Bordj El Bahri",     nameAr: "برج البحري",         slug: "bordj-el-bahri",     deliveryFee: "460.00", estimatedMinutes: 55, sortOrder: 53 },
+    { name: "Reghaia",            nameAr: "الرغاية",            slug: "reghaia",            deliveryFee: "480.00", estimatedMinutes: 60, sortOrder: 54 },
+    { name: "Rouiba",             nameAr: "الرويبة",            slug: "rouiba",             deliveryFee: "480.00", estimatedMinutes: 60, sortOrder: 55 },
+    { name: "Aïn Benian",         nameAr: "عين البنيان",        slug: "ain-benian",         deliveryFee: "490.00", estimatedMinutes: 55, sortOrder: 56 },
+    { name: "El Marsa",           nameAr: "المرسى",             slug: "el-marsa",           deliveryFee: "500.00", estimatedMinutes: 60, sortOrder: 57 },
+  ];
+
+  const algerZones = await db.insert(zonesTable).values(
+    algerCommunesData.map(z => ({ ...z, cityId: alger.id, isActive: true }))
+  ).returning();
+
+  // Extract commonly referenced communes by slug
+  const findZone = (slug: string) => algerZones.find(z => z.slug === slug)!;
+  const zCentre    = findZone("alger-centre");
+  const zBabElOued = findZone("bab-el-oued");
+  const zElBiar    = findZone("el-biar");
+  const zHydra     = findZone("hydra");
+  const zKouba     = findZone("kouba");
+  const zBirkhadem = findZone("birkhadem");
+  const zCheraga   = findZone("cheraga");
+  const zBabEzzouar = findZone("bab-ezzouar");
+  const zDarElBeida = findZone("dar-el-beida");
+
+  // Oran & Constantine — zones de base
+  const [zOranCentre] = await db.insert(zonesTable).values([
+    { cityId: oran.id,        name: "Centre-Ville", nameAr: "وسط المدينة", slug: "oran-centre",        deliveryFee: "200.00", estimatedMinutes: 20, sortOrder: 1 },
   ]).returning();
+
+  const [zConstCentre] = await db.insert(zonesTable).values([
+    { cityId: constantine.id, name: "Centre-Ville", nameAr: "وسط المدينة", slug: "constantine-centre", deliveryFee: "200.00", estimatedMinutes: 20, sortOrder: 1 },
+  ]).returning();
+
+  // ──────────────────────────────────────────────────────────
+  // DRIVER PROFILES — avec cityId Alger et preferredZoneId
+  // ──────────────────────────────────────────────────────────
+  await db.insert(driverProfilesTable).values([
+    { userId: drv1.id, status: "approved", isOnline: true,  availability: "available" as any, avgRating: "4.92", acceptanceRate: "94.00", totalDeliveries: 312, earningsTotal: "187200.00", cityId: alger.id, preferredZoneId: zCentre.id },
+    { userId: drv2.id, status: "approved", isOnline: true,  availability: "busy"      as any, avgRating: "4.80", acceptanceRate: "88.00", totalDeliveries: 185, earningsTotal: "111000.00", cityId: alger.id, preferredZoneId: zBabElOued.id },
+    { userId: drv3.id, status: "approved", isOnline: false, availability: "offline"   as any, avgRating: "4.65", acceptanceRate: "76.00", totalDeliveries: 98,  earningsTotal: "58800.00",  cityId: alger.id, preferredZoneId: zElBiar.id },
+    { userId: drv4.id, status: "approved", isOnline: true,  availability: "available" as any, avgRating: "4.88", acceptanceRate: "91.00", totalDeliveries: 221, earningsTotal: "132600.00", cityId: alger.id, preferredZoneId: zKouba.id },
+    { userId: drv5.id, status: "pending",  isOnline: false, availability: "offline"   as any, avgRating: "0.00", acceptanceRate: "0.00",  totalDeliveries: 0,   earningsTotal: "0.00",      cityId: alger.id, preferredZoneId: zCheraga.id },
+  ]);
+
+  // ──────────────────────────────────────────────────────────
+  // ADRESSES CLIENTS — liées aux communes d'Alger
+  // ──────────────────────────────────────────────────────────
+  await db.insert(addressesTable).values([
+    { userId: cust1.id, label: "Domicile", fullAddress: "15 Rue Larbi Ben M'hidi, Alger Centre",   cityId: alger.id, zoneId: zCentre.id,    isDefault: true },
+    { userId: cust1.id, label: "Bureau",   fullAddress: "22 Avenue Pasteur, Bab El Oued",           cityId: alger.id, zoneId: zBabElOued.id, isDefault: false },
+    { userId: cust2.id, label: "Domicile", fullAddress: "8 Rue Bougara, El Biar",                   cityId: alger.id, zoneId: zElBiar.id,    isDefault: true },
+    { userId: cust3.id, label: "Domicile", fullAddress: "22 Cité Aïn Allah, Hydra",                 cityId: alger.id, zoneId: zHydra.id,     isDefault: true },
+    { userId: cust3.id, label: "Parents",  fullAddress: "5 Rue du Docteur Saadane, Cheraga",        cityId: alger.id, zoneId: zCheraga.id,   isDefault: false },
+    { userId: cust4.id, label: "Domicile", fullAddress: "4 Allée des Roses, Kouba",                 cityId: alger.id, zoneId: zKouba.id,     isDefault: true },
+    { userId: cust5.id, label: "Domicile", fullAddress: "7 Rue Colonel Amirouche, Birkhadem",       cityId: alger.id, zoneId: zBirkhadem.id, isDefault: true },
+    { userId: cust6.id, label: "Domicile", fullAddress: "18 Rue Hassani Abdelkader, Bab El Oued",   cityId: alger.id, zoneId: zBabElOued.id, isDefault: true },
+    { userId: cust6.id, label: "Travail",  fullAddress: "Zone ENIE, Bab Ezzouar",                   cityId: alger.id, zoneId: zBabEzzouar.id,isDefault: false },
+  ]);
 
   // ──────────────────────────────────────────────────────────
   // RESTAURANTS
@@ -533,7 +630,7 @@ async function seed() {
   console.log("  🛵  Livreur:    driver@tc.dz            / driver123");
   console.log("  🧑  Client:     customer@tc.dz          / client123");
   console.log("\n📊 Seeded:");
-  console.log("  3 cities, 8 zones, 6 restaurants, 15 users");
+  console.log("  3 cities (DZ-16 Alger + Oran + Constantine), 59 zones (57 communes Alger + 2), 6 restaurants, 15 users");
   console.log("  32 menu items across 6 restaurants");
   console.log("  17 orders covering all major statuses");
   console.log("  11 ratings, 12 notifications, 4 fraud flags");
