@@ -7107,3 +7107,59 @@ export const useDeleteAddress = <
 > => {
   return useMutation(getDeleteAddressMutationOptions(options));
 };
+
+// ─── Driver management (suspend / activate / delete) ────────────────────────
+
+export const suspendDriver = async (driverId: number, options?: RequestInit): Promise<Driver> =>
+  customFetch<Driver>(`/api/admin/drivers/${driverId}/suspend`, { ...options, method: "POST" });
+
+export const useSuspendDriver = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof suspendDriver>>, TError, { driverId: number }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<Awaited<ReturnType<typeof suspendDriver>>, TError, { driverId: number }, TContext> => {
+  const mutationKey = ["suspendDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  return useMutation({
+    mutationFn: ({ driverId }) => suspendDriver(driverId, requestOptions),
+    ...mutationOptions,
+  });
+};
+
+export const activateDriver = async (driverId: number, options?: RequestInit): Promise<Driver> =>
+  customFetch<Driver>(`/api/admin/drivers/${driverId}/activate`, { ...options, method: "POST" });
+
+export const useActivateDriver = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof activateDriver>>, TError, { driverId: number }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<Awaited<ReturnType<typeof activateDriver>>, TError, { driverId: number }, TContext> => {
+  const mutationKey = ["activateDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  return useMutation({
+    mutationFn: ({ driverId }) => activateDriver(driverId, requestOptions),
+    ...mutationOptions,
+  });
+};
+
+export const deleteDriver = async (driverId: number, options?: RequestInit): Promise<{ success: boolean }> =>
+  customFetch<{ success: boolean }>(`/api/admin/drivers/${driverId}`, { ...options, method: "DELETE" });
+
+export const useDeleteDriver = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteDriver>>, TError, { driverId: number }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<Awaited<ReturnType<typeof deleteDriver>>, TError, { driverId: number }, TContext> => {
+  const mutationKey = ["deleteDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  return useMutation({
+    mutationFn: ({ driverId }) => deleteDriver(driverId, requestOptions),
+    ...mutationOptions,
+  });
+};

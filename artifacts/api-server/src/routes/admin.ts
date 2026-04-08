@@ -291,6 +291,35 @@ router.post("/drivers/:driverId/reject", authenticate, requireRole("admin"), asy
   res.json({ id: profile.id, userId: profile.userId, name: user?.name ?? "Unknown", email: user?.email ?? "", phone: user?.phone ?? null, status: profile.status, isOnline: profile.isOnline, cityId: profile.cityId ?? null, avgRating: Number(profile.avgRating ?? 0), acceptanceRate: Number(profile.acceptanceRate ?? 0), totalDeliveries: profile.totalDeliveries, failedConfirmations: profile.failedConfirmations, createdAt: profile.createdAt.toISOString() });
 });
 
+router.post("/drivers/:driverId/suspend", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId, 10);
+  const [profile] = await db.update(driverProfilesTable)
+    .set({ status: "suspended", isOnline: false, availability: "offline" })
+    .where(eq(driverProfilesTable.id, id)).returning();
+  if (!profile) { res.status(404).json({ error: "Not found" }); return; }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, profile.userId));
+  res.json({ id: profile.id, userId: profile.userId, name: user?.name ?? "Unknown", email: user?.email ?? "", phone: user?.phone ?? null, status: profile.status, isOnline: profile.isOnline, cityId: profile.cityId ?? null, avgRating: Number(profile.avgRating ?? 0), acceptanceRate: Number(profile.acceptanceRate ?? 0), totalDeliveries: profile.totalDeliveries, failedConfirmations: profile.failedConfirmations, createdAt: profile.createdAt.toISOString() });
+});
+
+router.post("/drivers/:driverId/activate", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId, 10);
+  const [profile] = await db.update(driverProfilesTable)
+    .set({ status: "approved" })
+    .where(eq(driverProfilesTable.id, id)).returning();
+  if (!profile) { res.status(404).json({ error: "Not found" }); return; }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, profile.userId));
+  res.json({ id: profile.id, userId: profile.userId, name: user?.name ?? "Unknown", email: user?.email ?? "", phone: user?.phone ?? null, status: profile.status, isOnline: profile.isOnline, cityId: profile.cityId ?? null, avgRating: Number(profile.avgRating ?? 0), acceptanceRate: Number(profile.acceptanceRate ?? 0), totalDeliveries: profile.totalDeliveries, failedConfirmations: profile.failedConfirmations, createdAt: profile.createdAt.toISOString() });
+});
+
+router.delete("/drivers/:driverId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId, 10);
+  const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.id, id));
+  if (!profile) { res.status(404).json({ error: "Not found" }); return; }
+  await db.delete(driverProfilesTable).where(eq(driverProfilesTable.id, id));
+  await db.delete(usersTable).where(eq(usersTable.id, profile.userId));
+  res.json({ success: true });
+});
+
 // CUSTOMERS
 router.get("/customers", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
   const { riskLevel, search } = req.query;

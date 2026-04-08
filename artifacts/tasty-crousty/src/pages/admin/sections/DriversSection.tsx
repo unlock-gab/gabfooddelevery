@@ -1,22 +1,29 @@
 import React, { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import {
-  useListDrivers, useApproveDriver, useRejectDriver, Driver,
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  useListDrivers, useApproveDriver, useRejectDriver,
+  useSuspendDriver, useActivateDriver, useDeleteDriver,
+  Driver,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Search, CheckCircle, XCircle, Eye, Truck, RefreshCw,
-  Star, Activity, AlertTriangle,
+  Star, Activity, AlertTriangle, PauseCircle, PlayCircle, Trash2,
 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-700",
+  pending:   "bg-amber-100 text-amber-800",
+  approved:  "bg-green-100 text-green-800",
+  rejected:  "bg-red-100 text-red-700",
   suspended: "bg-slate-100 text-slate-600",
 };
 const STATUS_LABELS: Record<string, string> = {
@@ -24,19 +31,21 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const FILTERS = [
-  { label: "Tous", value: "", online: undefined },
-  { label: "En attente", value: "pending", online: undefined },
-  { label: "Approuvés", value: "approved", online: undefined },
-  { label: "En ligne", value: "approved", online: true },
-  { label: "Hors ligne", value: "approved", online: false },
-  { label: "Rejetés", value: "rejected", online: undefined },
+  { label: "Tous",        value: "",         online: undefined },
+  { label: "En attente",  value: "pending",  online: undefined },
+  { label: "Approuvés",   value: "approved", online: undefined },
+  { label: "En ligne",    value: "approved", online: true      },
+  { label: "Hors ligne",  value: "approved", online: false     },
+  { label: "Suspendus",   value: "suspended",online: undefined },
+  { label: "Rejetés",     value: "rejected", online: undefined },
 ];
 
 export function DriversSection() {
   const { toast } = useToast();
-  const [filterIdx, setFilterIdx] = useState(0);
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Driver | null>(null);
+  const [filterIdx, setFilterIdx]       = useState(0);
+  const [search, setSearch]             = useState("");
+  const [selected, setSelected]         = useState<Driver | null>(null);
+  const [toDelete, setToDelete]         = useState<Driver | null>(null);
 
   const f = FILTERS[filterIdx];
   const { data: drivers, isLoading, refetch } = useListDrivers(
@@ -44,26 +53,49 @@ export function DriversSection() {
     { query: { refetchInterval: 15000 } }
   );
 
-  const approve = useApproveDriver();
-  const reject = useRejectDriver();
+  const approve  = useApproveDriver();
+  const reject   = useRejectDriver();
+  const suspend  = useSuspendDriver();
+  const activate = useActivateDriver();
+  const remove   = useDeleteDriver();
 
-  const handleApprove = (driverId: number) => {
-    approve.mutate({ driverId }, {
-      onSuccess: () => { toast({ title: "Livreur approuvé" }); refetch(); },
+  const act = (
+    mutation: { mutate: Function },
+    driverId: number,
+    label: string,
+    closeSheet = false,
+  ) => {
+    mutation.mutate({ driverId }, {
+      onSuccess: () => {
+        toast({ title: label });
+        refetch();
+        if (closeSheet) setSelected(null);
+      },
+      onError: () => toast({ title: "Erreur", variant: "destructive" }),
     });
   };
-  const handleReject = (driverId: number) => {
-    reject.mutate({ driverId }, {
-      onSuccess: () => { toast({ title: "Livreur rejeté" }); refetch(); },
+
+  const handleDelete = (d: Driver) => {
+    remove.mutate({ driverId: d.id }, {
+      onSuccess: () => {
+        toast({ title: `Livreur ${d.name} supprimé` });
+        refetch();
+        setToDelete(null);
+        setSelected(null);
+      },
+      onError: () => toast({ title: "Erreur lors de la suppression", variant: "destructive" }),
     });
   };
 
   const list = search
-    ? (drivers ?? []).filter(d => d.name.toLowerCase().includes(search.toLowerCase()) || d.email.toLowerCase().includes(search.toLowerCase()))
+    ? (drivers ?? []).filter(d =>
+        d.name.toLowerCase().includes(search.toLowerCase()) ||
+        d.email.toLowerCase().includes(search.toLowerCase()))
     : (drivers ?? []);
 
-  const pendingCount = (drivers ?? []).filter(d => d.status === "pending").length;
-  const onlineCount = (drivers ?? []).filter(d => d.isOnline).length;
+  const pendingCount   = (drivers ?? []).filter(d => d.status === "pending").length;
+  const onlineCount    = (drivers ?? []).filter(d => d.isOnline).length;
+  const suspendedCount = (drivers ?? []).filter(d => d.status === "suspended").length;
 
   return (
     <div className="space-y-4">
@@ -72,8 +104,9 @@ export function DriversSection() {
           <h1 className="text-2xl font-bold text-slate-900">Livreurs</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             {drivers?.length ?? 0} livreurs
-            {onlineCount > 0 && <span className="ml-2 text-green-600 font-medium">· {onlineCount} en ligne</span>}
-            {pendingCount > 0 && <span className="ml-2 text-amber-600 font-medium">· {pendingCount} en attente</span>}
+            {onlineCount > 0    && <span className="ml-2 text-green-600 font-medium">· {onlineCount} en ligne</span>}
+            {pendingCount > 0   && <span className="ml-2 text-amber-600 font-medium">· {pendingCount} en attente</span>}
+            {suspendedCount > 0 && <span className="ml-2 text-slate-500 font-medium">· {suspendedCount} suspendus</span>}
           </p>
         </div>
         <Button variant="outline" size="sm" className="h-8" onClick={() => refetch()}>
@@ -104,9 +137,7 @@ export function DriversSection() {
             }`}
           >
             {fi.label}
-            {fi.online === true && (
-              <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-            )}
+            {fi.online === true && <span className="ml-1.5 w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />}
           </button>
         ))}
         <div className="relative flex-1 min-w-[180px]">
@@ -178,20 +209,38 @@ export function DriversSection() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setSelected(d)}>
+                    <div className="flex items-center justify-end gap-1">
+                      {/* View */}
+                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setSelected(d)} title="Voir détails">
                         <Eye className="w-3 h-3" />
                       </Button>
+                      {/* Approve / Reject — pending only */}
                       {d.status === "pending" && (
                         <>
-                          <Button size="sm" className="h-7 px-2 bg-green-600 hover:bg-green-700 text-white" onClick={() => handleApprove(d.id)}>
+                          <Button size="sm" className="h-7 px-2 bg-green-600 hover:bg-green-700 text-white" onClick={() => act(approve, d.id, "Livreur approuvé")} title="Approuver">
                             <CheckCircle className="w-3 h-3" />
                           </Button>
-                          <Button size="sm" variant="destructive" className="h-7 px-2" onClick={() => handleReject(d.id)}>
+                          <Button size="sm" variant="destructive" className="h-7 px-2" onClick={() => act(reject, d.id, "Livreur rejeté")} title="Rejeter">
                             <XCircle className="w-3 h-3" />
                           </Button>
                         </>
                       )}
+                      {/* Suspend — approved only */}
+                      {d.status === "approved" && (
+                        <Button size="sm" variant="outline" className="h-7 px-2 border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => act(suspend, d.id, "Livreur suspendu")} title="Suspendre">
+                          <PauseCircle className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {/* Activate — suspended or rejected */}
+                      {(d.status === "suspended" || d.status === "rejected") && (
+                        <Button size="sm" variant="outline" className="h-7 px-2 border-green-300 text-green-700 hover:bg-green-50" onClick={() => act(activate, d.id, "Livreur réactivé")} title="Réactiver">
+                          <PlayCircle className="w-3 h-3" />
+                        </Button>
+                      )}
+                      {/* Delete */}
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => setToDelete(d)} title="Supprimer">
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -201,7 +250,7 @@ export function DriversSection() {
         </div>
       </Card>
 
-      {/* Detail drawer */}
+      {/* ── Detail drawer ── */}
       <Sheet open={selected !== null} onOpenChange={open => !open && setSelected(null)}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader>
@@ -211,7 +260,7 @@ export function DriversSection() {
           </SheetHeader>
           {selected && (
             <div className="mt-4 space-y-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[selected.status] ?? ""}`}>
                   {STATUS_LABELS[selected.status] ?? selected.status}
                 </span>
@@ -264,16 +313,34 @@ export function DriversSection() {
               </div>
 
               <Separator />
-              {selected.status === "pending" && (
-                <div className="flex gap-2">
-                  <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => { handleApprove(selected.id); setSelected(null); }}>
-                    <CheckCircle className="w-4 h-4 mr-2" /> Approuver
+
+              {/* Sheet action buttons */}
+              <div className="space-y-2">
+                {selected.status === "pending" && (
+                  <div className="flex gap-2">
+                    <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => act(approve, selected.id, "Livreur approuvé", true)}>
+                      <CheckCircle className="w-4 h-4 mr-2" /> Approuver
+                    </Button>
+                    <Button variant="destructive" className="flex-1" onClick={() => act(reject, selected.id, "Livreur rejeté", true)}>
+                      <XCircle className="w-4 h-4 mr-2" /> Rejeter
+                    </Button>
+                  </div>
+                )}
+                {selected.status === "approved" && (
+                  <Button variant="outline" className="w-full border-amber-300 text-amber-700 hover:bg-amber-50" onClick={() => act(suspend, selected.id, "Livreur suspendu", true)}>
+                    <PauseCircle className="w-4 h-4 mr-2" /> Suspendre le compte
                   </Button>
-                  <Button variant="destructive" className="flex-1" onClick={() => { handleReject(selected.id); setSelected(null); }}>
-                    <XCircle className="w-4 h-4 mr-2" /> Rejeter
+                )}
+                {(selected.status === "suspended" || selected.status === "rejected") && (
+                  <Button variant="outline" className="w-full border-green-300 text-green-700 hover:bg-green-50" onClick={() => act(activate, selected.id, "Livreur réactivé", true)}>
+                    <PlayCircle className="w-4 h-4 mr-2" /> Réactiver le compte
                   </Button>
-                </div>
-              )}
+                )}
+                <Button variant="destructive" className="w-full" onClick={() => { setToDelete(selected); setSelected(null); }}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Supprimer définitivement
+                </Button>
+              </div>
+
               {Number(selected.failedConfirmations) > 3 && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700 flex gap-2">
                   <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -284,6 +351,28 @@ export function DriversSection() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ── Delete confirmation dialog ── */}
+      <AlertDialog open={toDelete !== null} onOpenChange={open => !open && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce livreur ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Le compte de <strong>{toDelete?.name}</strong> ({toDelete?.email}) sera supprimé définitivement.
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => toDelete && handleDelete(toDelete)}
+            >
+              Supprimer définitivement
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
