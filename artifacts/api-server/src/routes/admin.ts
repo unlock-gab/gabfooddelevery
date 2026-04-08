@@ -593,13 +593,17 @@ router.delete("/admin/restaurants/:restaurantId", authenticate, requireRole("adm
   const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, id));
   if (!restaurant) { res.status(404).json({ error: "Not found" }); return; }
   try {
-    await db.update(ordersTable).set({ restaurantId: null } as any).where(eq(ordersTable.restaurantId, id));
-    await db.delete(ratingsTable).where(eq(ratingsTable.restaurantId, id));
+    // 1. Nullify restaurant_id on orders (raw SQL to avoid Drizzle auto-updatedAt issue)
+    await db.execute(sql`UPDATE orders SET restaurant_id = NULL WHERE restaurant_id = ${id}`);
+    // 2. Delete ratings targeting this restaurant
+    await db.delete(ratingsTable).where(and(eq(ratingsTable.targetType, "restaurant"), eq(ratingsTable.targetId, id)));
+    // 3. Delete products in all menu categories, then the categories
     const categories = await db.select().from(menuCategoriesTable).where(eq(menuCategoriesTable.restaurantId, id));
     for (const cat of categories) {
       await db.delete(productsTable).where(eq(productsTable.categoryId, cat.id));
     }
     await db.delete(menuCategoriesTable).where(eq(menuCategoriesTable.restaurantId, id));
+    // 4. Delete the restaurant and its user account
     await db.delete(restaurantsTable).where(eq(restaurantsTable.id, id));
     await db.delete(usersTable).where(eq(usersTable.id, restaurant.userId));
     res.json({ success: true });
