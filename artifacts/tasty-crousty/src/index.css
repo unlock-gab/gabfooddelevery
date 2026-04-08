@@ -3,6 +3,20 @@
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
 
+/* ─── CONTAINER SYSTEM ─────────────────────────────────────────────────────── */
+/* Tailwind v4 ships container as width:100% with no centering/padding.         */
+/* Redefine it here so every className="container" gets a centred max-width.   */
+@utility container {
+  width: 100%;
+  max-width: 80rem;         /* 1280px ≈ max-w-7xl */
+  margin-inline: auto;
+  padding-inline: 1.25rem;  /* 20px mobile */
+
+  @media (width >= 640px)  { padding-inline: 1.5rem;  }  /* sm  24px */
+  @media (width >= 1024px) { padding-inline: 2rem;    }  /* lg  32px */
+  @media (width >= 1280px) { padding-inline: 2.5rem;  }  /* xl  40px */
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
