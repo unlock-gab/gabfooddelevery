@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import {
-  useListOrders, useGetDispatchAttempts, useListDrivers, useAssignDriver,
+  useListOrders, useGetDispatchAttempts, useListDrivers, useAssignDriver, useCancelOrder,
 } from "@workspace/api-client-react";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Radio, RefreshCw, Clock, Truck, AlertTriangle, Send, Users, RotateCcw,
+  Radio, RefreshCw, Clock, Truck, AlertTriangle, Send, Users, RotateCcw, XCircle, X,
 } from "lucide-react";
 
 function useDispatchOrder() {
@@ -47,6 +47,9 @@ export function DispatchSection() {
   const qc = useQueryClient();
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [assignDriverId, setAssignDriverId] = useState<number | null>(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState<number | null>(null);
+
+  const cancelOrder = useCancelOrder();
 
   const { data: pendingData, refetch: refetchPending, isLoading: loadingPending } = useListOrders(
     { status: "dispatching_driver" },
@@ -100,6 +103,21 @@ export function DispatchSection() {
       },
       onError: () => toast({ title: "Erreur d'assignation", variant: "destructive" } as any),
     });
+  };
+
+  const handleCancel = (orderId: number) => {
+    cancelOrder.mutate(
+      { orderId, data: { reason: "Annulé par l'administrateur" } },
+      {
+        onSuccess: () => {
+          toast({ title: "Commande annulée", description: "La commande a été annulée avec succès." });
+          setCancelConfirmId(null);
+          refetchAll();
+          qc.invalidateQueries();
+        },
+        onError: () => toast({ title: "Erreur", description: "Impossible d'annuler cette commande.", variant: "destructive" } as any),
+      }
+    );
   };
 
   const getWaitTime = (createdAt: string) => {
@@ -165,35 +183,68 @@ export function DispatchSection() {
         <div className="space-y-2">
           {awaiting.map(order => {
             const wait = getWaitTime(order.createdAt);
+            const isConfirming = cancelConfirmId === order.id;
             return (
-              <Card key={order.id} className={`border ${wait > 10 ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/20"}`}>
+              <Card key={order.id} className={`border ${isConfirming ? "border-red-300 bg-red-50/50" : wait > 10 ? "border-red-200 bg-red-50/30" : "border-amber-200 bg-amber-50/20"}`}>
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="font-mono text-xs font-bold text-slate-700">{order.orderNumber}</span>
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                          Jamais dispatché
-                        </span>
-                        {wait > 10 && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            <AlertTriangle className="w-3 h-3" /> {wait} min
-                          </span>
-                        )}
+                  {isConfirming ? (
+                    /* Confirmation inline */
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm text-red-800">
+                        <XCircle className="w-4 h-4 shrink-0" />
+                        <span>Annuler <strong>{order.orderNumber}</strong> ? Cette action est irréversible.</span>
                       </div>
-                      <p className="text-sm text-slate-700 font-medium">{order.restaurantName}</p>
-                      <p className="text-xs text-slate-400 truncate">{order.deliveryAddress}</p>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setCancelConfirmId(null)}>
+                          Non
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white"
+                          onClick={() => handleCancel(order.id)}
+                          disabled={cancelOrder.isPending}
+                        >
+                          {cancelOrder.isPending ? "..." : "Oui, annuler"}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold text-slate-800">{formatDA(order.total)}</span>
-                      <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => handleRetry(order.id)}>
-                        <Radio className="w-3 h-3 mr-1" /> Dispatcher
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedOrderId(order.id)}>
-                        <Truck className="w-3 h-3 mr-1" /> Manuel
-                      </Button>
+                  ) : (
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-slate-700">{order.orderNumber}</span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            Jamais dispatché
+                          </span>
+                          {wait > 10 && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              <AlertTriangle className="w-3 h-3" /> {wait} min
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-700 font-medium">{order.restaurantName}</p>
+                        <p className="text-xs text-slate-400 truncate">{order.deliveryAddress}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold text-slate-800">{formatDA(order.total)}</span>
+                        <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => handleRetry(order.id)}>
+                          <Radio className="w-3 h-3 mr-1" /> Dispatcher
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedOrderId(order.id)}>
+                          <Truck className="w-3 h-3 mr-1" /> Manuel
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => setCancelConfirmId(order.id)}
+                          title="Annuler la commande"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -201,33 +252,66 @@ export function DispatchSection() {
 
           {pending.map(order => {
             const wait = getWaitTime(order.createdAt);
+            const isConfirming = cancelConfirmId === order.id;
             return (
-              <Card key={order.id} className="border border-blue-200 bg-blue-50/20">
+              <Card key={order.id} className={`border ${isConfirming ? "border-red-300 bg-red-50/50" : "border-blue-200 bg-blue-50/20"}`}>
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="font-mono text-xs font-bold text-slate-700">{order.orderNumber}</span>
-                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Dispatch en cours
-                        </span>
-                        <span className="flex items-center gap-1 text-xs text-slate-400">
-                          <Clock className="w-3 h-3" /> {wait} min
-                        </span>
+                  {isConfirming ? (
+                    /* Confirmation inline */
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-sm text-red-800">
+                        <XCircle className="w-4 h-4 shrink-0" />
+                        <span>Annuler <strong>{order.orderNumber}</strong> ? Cette action est irréversible.</span>
                       </div>
-                      <p className="text-sm text-slate-700 font-medium">{order.restaurantName}</p>
-                      <p className="text-xs text-slate-400 truncate">{order.deliveryAddress}</p>
+                      <div className="flex gap-2 shrink-0">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setCancelConfirmId(null)}>
+                          Non
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs bg-red-600 hover:bg-red-700 text-white"
+                          onClick={() => handleCancel(order.id)}
+                          disabled={cancelOrder.isPending}
+                        >
+                          {cancelOrder.isPending ? "..." : "Oui, annuler"}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold text-slate-800">{formatDA(order.total)}</span>
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleRetry(order.id)}>
-                        <RotateCcw className="w-3 h-3 mr-1" /> Relancer
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedOrderId(order.id)}>
-                        <Truck className="w-3 h-3 mr-1" /> Manuel
-                      </Button>
+                  ) : (
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-slate-700">{order.orderNumber}</span>
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Dispatch en cours
+                          </span>
+                          <span className="flex items-center gap-1 text-xs text-slate-400">
+                            <Clock className="w-3 h-3" /> {wait} min
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-700 font-medium">{order.restaurantName}</p>
+                        <p className="text-xs text-slate-400 truncate">{order.deliveryAddress}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold text-slate-800">{formatDA(order.total)}</span>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleRetry(order.id)}>
+                          <RotateCcw className="w-3 h-3 mr-1" /> Relancer
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setSelectedOrderId(order.id)}>
+                          <Truck className="w-3 h-3 mr-1" /> Manuel
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                          onClick={() => setCancelConfirmId(order.id)}
+                          title="Annuler la commande"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             );
