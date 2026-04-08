@@ -46,7 +46,7 @@ export default function LoginScreen() {
       if (!res.ok) throw new Error(data.error ?? "Erreur de connexion");
       await login(data.token, data.user);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/(tabs)/");
+      router.replace("/" as any);
     } catch (e: any) {
       setError(e.message ?? "Erreur inconnue");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

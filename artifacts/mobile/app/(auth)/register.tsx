@@ -51,7 +51,7 @@ export default function RegisterScreen() {
       if (!res.ok) throw new Error(data.error ?? "Erreur lors de l'inscription");
       await login(data.token, data.user);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace("/(tabs)/");
+      router.replace("/" as any);
     } catch (e: any) {
       setError(e.message ?? "Erreur inconnue");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

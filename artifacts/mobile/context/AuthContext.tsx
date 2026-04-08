@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { queryClient } from "@/lib/queryClient";
 
 const TOKEN_KEY = "tc_token";
 const USER_KEY = "tc_user";
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.removeItem(TOKEN_KEY),
       AsyncStorage.removeItem(USER_KEY),
     ]);
+    queryClient.clear();
     setToken(null);
     setUser(null);
   };
