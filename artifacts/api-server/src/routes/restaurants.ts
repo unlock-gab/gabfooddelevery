@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { restaurantsTable, restaurantHoursTable, ordersTable, ratingsTable, usersTable } from "@workspace/db";
+import { restaurantsTable, restaurantHoursTable, ordersTable, ratingsTable, usersTable, zonesTable, platformSettingsTable } from "@workspace/db";
 import { eq, and, avg, count, sql } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
 
@@ -72,7 +72,19 @@ router.get("/restaurants/:restaurantId", async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.restaurantId) ? req.params.restaurantId[0] : req.params.restaurantId, 10);
   const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, id));
   if (!restaurant) { res.status(404).json({ error: "Restaurant not found" }); return; }
-  res.json(formatRestaurant(restaurant));
+
+  // Fetch delivery fee from zone
+  let deliveryFee = 350;
+  if (restaurant.zoneId) {
+    const [zone] = await db.select().from(zonesTable).where(eq(zonesTable.id, restaurant.zoneId));
+    if (zone?.deliveryFee) deliveryFee = Number(zone.deliveryFee);
+  }
+  if (deliveryFee === 350) {
+    const [setting] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.key, "default_delivery_fee"));
+    if (setting?.value) deliveryFee = Number(setting.value) || 350;
+  }
+
+  res.json({ ...formatRestaurant(restaurant), deliveryFee });
 });
 
 router.patch("/restaurants/:restaurantId", authenticate, async (req, res): Promise<void> => {

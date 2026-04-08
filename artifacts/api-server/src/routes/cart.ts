@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { cartTable, cartItemsTable, productsTable, zonesTable, restaurantsTable } from "@workspace/db";
+import { cartTable, cartItemsTable, productsTable, zonesTable, restaurantsTable, platformSettingsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { authenticate } from "../lib/auth";
 
@@ -24,8 +24,22 @@ async function getCartWithItems(userId: number) {
     restaurantName = r?.name ?? null;
   }
 
-  let deliveryFee = 0;
   const subtotal = items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+
+  // Calculate delivery fee from restaurant zone → platform default → 350 DA fallback
+  let deliveryFee = 350;
+  if (cart.restaurantId) {
+    const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, cart.restaurantId));
+    if (restaurant?.zoneId) {
+      const [zone] = await db.select().from(zonesTable).where(eq(zonesTable.id, restaurant.zoneId));
+      if (zone?.deliveryFee) deliveryFee = Number(zone.deliveryFee);
+    }
+  }
+  if (deliveryFee === 350) {
+    const [setting] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.key, "default_delivery_fee"));
+    if (setting?.value) deliveryFee = Number(setting.value) || 350;
+  }
+  if (items.length === 0) deliveryFee = 0;
 
   return {
     id: cart.id,
