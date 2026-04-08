@@ -510,6 +510,15 @@ export default function RestaurantDashboard() {
                   <span className="text-xs font-bold text-slate-300">{value}</span>
                 </div>
               ))}
+              {stats.revenue > 0 && (
+                <div className="mt-1 pt-2 border-t border-white/10">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-amber-400/80">Commission TC (12%)</span>
+                    <span className="text-xs font-bold text-amber-400">{formatDA(Math.round(stats.revenue * 0.12))}</span>
+                  </div>
+                  <p className="text-[10px] text-slate-600 mt-1">Déduite de votre CA</p>
+                </div>
+              )}
             </div>
           )}
         </nav>

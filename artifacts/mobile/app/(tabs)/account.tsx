@@ -111,6 +111,12 @@ function DriverEarningsCard({ colors }: { colors: any }) {
             {formatDA(st?.earningsTotal ?? 0)}
           </Text>
           <Text style={s.earningsSub}>Total cumulé</Text>
+          {(st?.earningsTotal ?? 0) > 0 && (
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "rgba(0,0,0,0.2)", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, marginTop: 8, marginBottom: 2 }}>
+              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>Commission TC (12%)</Text>
+              <Text style={{ color: "#FDE68A", fontSize: 12, fontWeight: "700" }}>−{formatDA(Math.round((st?.earningsTotal ?? 0) * 0.12))}</Text>
+            </View>
+          )}
           <View style={s.earningsRow}>
             <View style={s.earningsStat}>
               <Text style={s.earningsStatValue}>{st?.totalDeliveries ?? 0}</Text>
