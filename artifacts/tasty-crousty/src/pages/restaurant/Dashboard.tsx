@@ -4,18 +4,16 @@ import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PrepLockIndicator } from "@/components/ui/PrepLockIndicator";
-import { OrderTimeline } from "@/components/ui/OrderTimeline";
 import { StatCard } from "@/components/ui/StatCard";
 import { useListOrders, useGetRestaurantStats, useStartPreparing, useMarkOrderReady, useGetRestaurant } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { ShoppingBag, Clock, TrendingUp, Star, ChefHat, CheckCircle, Package, ToggleLeft, ToggleRight, RefreshCw, PauseCircle, PlayCircle } from "lucide-react";
+import { ShoppingBag, Clock, TrendingUp, ChefHat, CheckCircle, Package, RefreshCw, PauseCircle, PlayCircle } from "lucide-react";
 import { NotificationBell } from "@/components/ui/NotificationBell";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import MenuManager from "./MenuManager";
 
 const ACTIVE_STATUSES = [
   "confirmed_for_preparation",
@@ -199,15 +197,20 @@ export default function RestaurantDashboard() {
           <p className="text-xs text-muted-foreground">Dashboard Restaurant</p>
         </div>
         <nav className="flex-1 p-3 space-y-1">
-          <Button variant="default" className="w-full justify-start text-sm h-9" onClick={() => setTab("active")}>
-            <ChefHat className="w-4 h-4 mr-2" /> Commandes actives
-          </Button>
-          <Button variant="ghost" className="w-full justify-start text-sm h-9" onClick={() => setTab("menu")}>
-            <Package className="w-4 h-4 mr-2" /> Menu
-          </Button>
-          <Button variant="ghost" className="w-full justify-start text-sm h-9" onClick={() => setTab("stats")}>
-            <TrendingUp className="w-4 h-4 mr-2" /> Statistiques
-          </Button>
+          {[
+            { id: "active", icon: <ChefHat className="w-4 h-4 mr-2" />, label: "Commandes actives" },
+            { id: "menu",   icon: <Package className="w-4 h-4 mr-2" />,  label: "Menu" },
+            { id: "stats",  icon: <TrendingUp className="w-4 h-4 mr-2" />, label: "Statistiques" },
+          ].map(item => (
+            <Button
+              key={item.id}
+              variant={tab === item.id ? "default" : "ghost"}
+              className="w-full justify-start text-sm h-9"
+              onClick={() => setTab(item.id)}
+            >
+              {item.icon} {item.label}
+            </Button>
+          ))}
         </nav>
         <div className="p-3 border-t">
           <div className="text-xs text-muted-foreground mb-2">{user.name}</div>
@@ -248,6 +251,27 @@ export default function RestaurantDashboard() {
             </div>
           </div>
 
+          {/* ======= MENU TAB ======= */}
+          {tab === "menu" && myRestaurant && (
+            <MenuManager restaurantId={myRestaurant.id} />
+          )}
+          {tab === "menu" && !myRestaurant && (
+            <div className="text-center py-20 text-muted-foreground">
+              <Package className="w-12 h-12 mx-auto mb-3 opacity-20" />
+              <p>Chargement du restaurant…</p>
+            </div>
+          )}
+
+          {/* ======= STATS TAB ======= */}
+          {tab === "stats" && (
+            <div className="text-center py-20 text-muted-foreground">
+              <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-20" />
+              <p className="font-medium">Statistiques disponibles prochainement</p>
+            </div>
+          )}
+
+          {/* ======= ACTIVE ORDERS TAB ======= */}
+          {tab === "active" && <>
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <StatCard
@@ -345,6 +369,7 @@ export default function RestaurantDashboard() {
               </div>
             )}
           </div>
+          </>}
         </div>
       </main>
     </div>

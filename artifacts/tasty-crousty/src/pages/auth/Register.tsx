@@ -14,8 +14,11 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingBag, Building2, Truck, UtensilsCrossed, ChevronRight, MapPin, LayoutGrid } from "lucide-react";
+import { ShoppingBag, Building2, Truck, UtensilsCrossed, ChevronRight, MapPin, LayoutGrid, ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const registerSchema = z.object({
   name:     z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
@@ -77,6 +80,8 @@ export default function Register() {
   const selectedCityId = form.watch("cityId");
   const roleConfig = ROLE_CONFIG[activeRole];
   const showZone = roleConfig.requireZone && selectedCityId != null;
+
+  const [zoneOpen, setZoneOpen] = React.useState(false);
 
   const { data: zones } = useListZones(
     selectedCityId ?? 0,
@@ -272,32 +277,49 @@ export default function Register() {
                             {activeRole === "driver" ? "Zone de livraison préférée" : activeRole === "restaurant" ? "Zone du restaurant" : "Commune"}
                             <span className="text-muted-foreground font-normal ml-1">(optionnel)</span>
                           </FormLabel>
-                          <Select
-                            value={field.value != null ? String(field.value) : ""}
-                            onValueChange={(val) => field.onChange(val ? Number(val) : null)}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="h-11">
-                                <SelectValue placeholder={
-                                  activeZones.length === 0
-                                    ? "Aucune zone disponible"
-                                    : "Sélectionnez une zone…"
-                                } />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {activeZones.length === 0 ? (
-                                <div className="py-4 text-center text-sm text-muted-foreground">Aucune zone pour cette wilaya</div>
-                              ) : (
-                                activeZones.map((zone: any) => (
-                                  <SelectItem key={zone.id} value={String(zone.id)}>
-                                    {zone.name}
-                                    {zone.deliveryFee ? ` — ${Number(zone.deliveryFee).toLocaleString("fr-DZ")} DA` : ""}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
+                          <Popover open={zoneOpen} onOpenChange={setZoneOpen}>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn("w-full h-11 justify-between font-normal", !field.value && "text-muted-foreground")}
+                                >
+                                  {field.value
+                                    ? activeZones.find((z: any) => z.id === field.value)?.name ?? "Sélectionnez…"
+                                    : activeZones.length === 0 ? "Aucune zone disponible" : "Rechercher une commune…"
+                                  }
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-full p-0" align="start" style={{ width: "var(--radix-popover-trigger-width)" }}>
+                              <Command>
+                                <CommandInput placeholder="Tapez le nom de votre commune…" />
+                                <CommandList>
+                                  <CommandEmpty>Aucune commune trouvée.</CommandEmpty>
+                                  <CommandGroup>
+                                    {activeZones.map((zone: any) => (
+                                      <CommandItem
+                                        key={zone.id}
+                                        value={zone.name}
+                                        onSelect={() => {
+                                          field.onChange(zone.id);
+                                          setZoneOpen(false);
+                                        }}
+                                      >
+                                        <Check className={cn("mr-2 h-4 w-4", field.value === zone.id ? "opacity-100" : "opacity-0")} />
+                                        <span className="flex-1">{zone.name}</span>
+                                        {zone.deliveryFee && (
+                                          <span className="text-xs text-muted-foreground ml-2">{Number(zone.deliveryFee).toLocaleString("fr-DZ")} DA</span>
+                                        )}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
                           {activeRole === "customer" && (
                             <p className="text-xs text-muted-foreground mt-1">
                               Indiquez votre commune pour voir les restaurants qui livrent chez vous.
