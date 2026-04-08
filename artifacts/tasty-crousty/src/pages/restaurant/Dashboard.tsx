@@ -148,7 +148,7 @@ function OrderCard({ order, onAction, compact }: { order: any; onAction: () => v
             <p className="text-[11px] text-slate-400">{order.items?.length ?? 0} art.</p>
           </div>
           <StatusChip status={order.status} />
-          <div className="w-24 flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="w-24 flex justify-end gap-1.5">
             {order.status === "confirmed_for_preparation" && (
               <Button size="sm" className="h-7 text-xs px-2.5 rounded-lg" onClick={handleStart} disabled={startPreparing.isPending}>
                 <ChefHat className="w-3 h-3 mr-1" /> GO
