@@ -237,6 +237,48 @@ router.post("/driver/missions/:orderId/cancel", authenticate, requireRole("drive
   res.json({ success: true, message: "Mission annulée — la commande sera re-dispatchée" });
 });
 
+// Step 1: driver heads to restaurant, will now call the customer → set awaiting_customer_confirmation
+router.post("/driver/missions/:orderId/start-confirmation", authenticate, requireRole("driver"), async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const orderId = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
+
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+  if (!order) { res.status(404).json({ error: "Commande introuvable" }); return; }
+  if (order.driverId !== user.id) { res.status(403).json({ error: "Ce n'est pas votre mission" }); return; }
+  if (order.status !== "driver_assigned") { res.status(400).json({ error: "Statut incorrect" }); return; }
+
+  const [updated] = await db.update(ordersTable)
+    .set({ status: "awaiting_customer_confirmation" })
+    .where(eq(ordersTable.id, orderId))
+    .returning();
+
+  await addStatusHistory(orderId, "awaiting_customer_confirmation", "Livreur en route — confirmation client en cours", `driver:${user.id}`);
+
+  // Notify customer
+  await createNotification({
+    userId: order.customerId,
+    type: "driver_assigned",
+    title: "Votre livreur arrive bientôt 🛵",
+    message: `${user.name} se dirige vers le restaurant. Il vous contactera pour confirmer votre adresse.`,
+    relatedOrderId: orderId,
+  });
+
+  // Notify restaurant
+  const [restaurant] = await db.select({ userId: restaurantsTable.userId }).from(restaurantsTable).where(eq(restaurantsTable.id, order.restaurantId));
+  if (restaurant) {
+    await createNotification({
+      userId: restaurant.userId,
+      type: "driver_assigned",
+      title: "Livreur en route vers vous",
+      message: `Le livreur se dirige vers votre restaurant pour la commande ${order.orderNumber}.`,
+      relatedOrderId: orderId,
+    });
+  }
+
+  res.json({ ...updated, subtotal: Number(updated.subtotal), deliveryFee: Number(updated.deliveryFee), total: Number(updated.total), driverName: user.name, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
+});
+
+// Step 2: driver confirms/fails address with customer
 router.post("/driver/confirm/:orderId", authenticate, requireRole("driver"), async (req, res): Promise<void> => {
   const user = (req as any).user;
   const orderId = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);

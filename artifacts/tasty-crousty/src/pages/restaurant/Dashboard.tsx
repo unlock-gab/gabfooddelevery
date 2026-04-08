@@ -335,25 +335,27 @@ export default function RestaurantDashboard() {
   if (!authorized) { setLocation("/auth/login"); return null; }
 
   const POLL = { refetchInterval: 12000 };
-  const { data: confirmedData, refetch: r1 } = useListOrders({ status: "confirmed_for_preparation" }, { query: POLL });
-  const { data: preparingData,  refetch: r2 } = useListOrders({ status: "preparing" }, { query: POLL });
-  const { data: pendingConfData, refetch: r3 } = useListOrders({ status: "awaiting_customer_confirmation" }, { query: POLL });
-  const { data: readyData,       refetch: r4 } = useListOrders({ status: "ready_for_pickup" }, { query: POLL });
-  const { data: deliveredData  }               = useListOrders({ status: "delivered" } as any,  { query: { refetchInterval: 30000 } });
-  const { data: cancelledData  }               = useListOrders({ status: "cancelled" } as any,  { query: { refetchInterval: 30000 } });
-  const { data: allOrdersData,   refetch: r5 } = useListOrders({} as any, { query: { refetchInterval: 30000 } });
+  const { data: confirmedData,      refetch: r1 } = useListOrders({ status: "confirmed_for_preparation" }, { query: POLL });
+  const { data: preparingData,      refetch: r2 } = useListOrders({ status: "preparing" }, { query: POLL });
+  const { data: pendingConfData,    refetch: r3 } = useListOrders({ status: "awaiting_customer_confirmation" }, { query: POLL });
+  const { data: readyData,          refetch: r4 } = useListOrders({ status: "ready_for_pickup" }, { query: POLL });
+  const { data: driverAssignedData, refetch: r6 } = useListOrders({ status: "driver_assigned" } as any, { query: POLL });
+  const { data: deliveredData  }                  = useListOrders({ status: "delivered" } as any,  { query: { refetchInterval: 30000 } });
+  const { data: cancelledData  }                  = useListOrders({ status: "cancelled" } as any,  { query: { refetchInterval: 30000 } });
+  const { data: allOrdersData,      refetch: r5 } = useListOrders({} as any, { query: { refetchInterval: 30000 } });
 
-  const confirmed   = confirmedData?.orders   ?? [];
-  const preparing   = preparingData?.orders   ?? [];
-  const pendingConf = pendingConfData?.orders  ?? [];
-  const ready       = readyData?.orders       ?? [];
-  const delivered   = deliveredData?.orders   ?? [];
-  const cancelled   = cancelledData?.orders   ?? [];
-  const allOrders   = allOrdersData?.orders   ?? [];
+  const confirmed      = confirmedData?.orders      ?? [];
+  const preparing      = preparingData?.orders      ?? [];
+  const pendingConf    = pendingConfData?.orders     ?? [];
+  const ready          = readyData?.orders           ?? [];
+  const driverAssigned = driverAssignedData?.orders  ?? [];
+  const delivered      = deliveredData?.orders       ?? [];
+  const cancelled      = cancelledData?.orders       ?? [];
+  const allOrders      = allOrdersData?.orders       ?? [];
 
-  const refetchAll = () => { r1(); r2(); r3(); r4(); r5(); setLastRefresh(new Date()); qc.invalidateQueries(); };
+  const refetchAll = () => { r1(); r2(); r3(); r4(); r5(); r6(); setLastRefresh(new Date()); qc.invalidateQueries(); };
 
-  const totalActive = confirmed.length + preparing.length + ready.length;
+  const totalActive = confirmed.length + preparing.length + ready.length + driverAssigned.length;
   const caJour      = delivered.reduce((s: number, o: any) => s + (o.total ?? 0), 0);
 
   const kpiValues: Record<string, string | number> = {
@@ -385,7 +387,7 @@ export default function RestaurantDashboard() {
       case "preparing": return preparing;
       case "ready":     return ready;
       case "history":   return allOrders.filter((o: any) => ["delivered","cancelled"].includes(o.status));
-      default:          return [...pendingConf, ...confirmed, ...preparing, ...ready];
+      default:          return [...driverAssigned, ...pendingConf, ...confirmed, ...preparing, ...ready];
     }
   };
 

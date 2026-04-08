@@ -119,6 +119,7 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
   const isLoading = loadingAvailable || loadingActive;
 
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [confirmingId, setConfirmingId] = useState<number | null>(null);
 
   const refetchAll = () => { refetchAvailable(); refetchActive(); };
 
@@ -159,6 +160,52 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
         },
       ]
     );
+  };
+
+  const apiCall = async (path: string, body?: object) => {
+    const { default: AsyncStorage } = await import("@react-native-async-storage/async-storage");
+    const token = await AsyncStorage.getItem("tc_token");
+    return fetch(`https://${process.env.EXPO_PUBLIC_DOMAIN}/api${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  };
+
+  const handleStartConfirmation = async (orderId: number) => {
+    setConfirmingId(orderId);
+    try {
+      const res = await apiCall(`/driver/missions/${orderId}/start-confirmation`);
+      if (res.ok) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        refetchAll();
+      } else {
+        const err = await res.json();
+        Alert.alert("Erreur", err.error ?? "Impossible de changer le statut");
+      }
+    } catch {
+      Alert.alert("Erreur réseau", "Vérifiez votre connexion.");
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  const handleDriverConfirm = async (orderId: number, result: "confirmed" | "needs_correction" | "failed") => {
+    setConfirmingId(orderId);
+    try {
+      const res = await apiCall(`/driver/confirm/${orderId}`, { result });
+      if (res.ok) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        refetchAll();
+      } else {
+        const err = await res.json();
+        Alert.alert("Erreur", err.error ?? "Impossible de confirmer");
+      }
+    } catch {
+      Alert.alert("Erreur réseau", "Vérifiez votre connexion.");
+    } finally {
+      setConfirmingId(null);
+    }
   };
 
   const handleAccept = async (orderId: number) => {
@@ -406,7 +453,56 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
                       </View>
                     )}
 
-                    {canCancel && (
+                    {/* Step 1: driver_assigned → tap to "I'm going to restaurant & will call customer" */}
+                    {item.status === "driver_assigned" && (
+                      <TouchableOpacity
+                        style={{ borderTopWidth: 1, borderTopColor: "#FCD34D", paddingVertical: 13, alignItems: "center", backgroundColor: "#FFFBEB", flexDirection: "row", justifyContent: "center", gap: 8 }}
+                        onPress={() => handleStartConfirmation(item.id)}
+                        disabled={confirmingId === item.id}
+                      >
+                        {confirmingId === item.id ? (
+                          <ActivityIndicator size="small" color="#D97706" />
+                        ) : (
+                          <>
+                            <Ionicons name="call-outline" size={16} color="#D97706" />
+                            <Text style={{ color: "#D97706", fontSize: 14, fontWeight: "700" }}>
+                              Je pars au restaurant — Confirmer avec le client
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    {/* Step 2: awaiting_customer_confirmation → driver called customer, confirm result */}
+                    {item.status === "awaiting_customer_confirmation" && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
+                        <Text style={{ textAlign: "center", fontSize: 12, color: "#6B7280", paddingTop: 10, paddingHorizontal: 14 }}>
+                          Avez-vous joint et confirmé l'adresse avec le client ?
+                        </Text>
+                        <View style={{ flexDirection: "row" }}>
+                          <TouchableOpacity
+                            style={{ flex: 1, paddingVertical: 12, alignItems: "center", backgroundColor: "#F0FDF4", borderRightWidth: 1, borderRightColor: colors.border }}
+                            onPress={() => handleDriverConfirm(item.id, "confirmed")}
+                            disabled={confirmingId === item.id}
+                          >
+                            {confirmingId === item.id ? (
+                              <ActivityIndicator size="small" color="#16A34A" />
+                            ) : (
+                              <Text style={{ color: "#16A34A", fontSize: 13, fontWeight: "700" }}>✓ Confirmé</Text>
+                            )}
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={{ flex: 1, paddingVertical: 12, alignItems: "center", backgroundColor: "#FEF2F2" }}
+                            onPress={() => handleDriverConfirm(item.id, "failed")}
+                            disabled={confirmingId === item.id}
+                          >
+                            <Text style={{ color: "#EF4444", fontSize: 13, fontWeight: "700" }}>✕ Injoignable</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    )}
+
+                    {canCancel && item.status !== "driver_assigned" && item.status !== "awaiting_customer_confirmation" && (
                       <TouchableOpacity
                         style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 10, alignItems: "center", backgroundColor: "#FEF2F2" }}
                         onPress={() => handleCancelMission(item.id, item.orderNumber ?? `#${item.id}`)}
@@ -417,6 +513,22 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
                         ) : (
                           <Text style={{ color: "#EF4444", fontSize: 13, fontWeight: "600" }}>
                             ✕ Annuler cette mission
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+
+                    {canCancel && (item.status === "driver_assigned" || item.status === "awaiting_customer_confirmation") && (
+                      <TouchableOpacity
+                        style={{ paddingVertical: 9, alignItems: "center" }}
+                        onPress={() => handleCancelMission(item.id, item.orderNumber ?? `#${item.id}`)}
+                        disabled={cancellingId === item.id}
+                      >
+                        {cancellingId === item.id ? (
+                          <ActivityIndicator size="small" color="#9CA3AF" />
+                        ) : (
+                          <Text style={{ color: "#9CA3AF", fontSize: 12 }}>
+                            Annuler la mission
                           </Text>
                         )}
                       </TouchableOpacity>
