@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatDA } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useListPayments, useRefundPayment } from "@workspace/api-client-react";
@@ -71,7 +72,7 @@ export function PaymentsSection() {
               <TrendingUp className="w-4 h-4 text-green-500" />
               <p className="text-xs text-slate-500 uppercase tracking-wide">Revenu (filtre)</p>
             </div>
-            <p className="text-2xl font-bold text-green-600">{totalRevenue.toFixed(2)} DA</p>
+            <p className="text-2xl font-bold text-green-600">{formatDA(totalRevenue)}</p>
           </CardContent>
         </Card>
         <Card>
@@ -160,7 +161,7 @@ export function PaymentsSection() {
                       {STATUS_LABELS[p.status] ?? p.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-semibold text-slate-800">{Number(p.amount).toFixed(2)} DA</td>
+                  <td className="px-4 py-3 font-semibold text-slate-800">{formatDA(p.amount)}</td>
                   <td className="px-4 py-3 text-xs text-slate-400">
                     {new Date(p.createdAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </td>

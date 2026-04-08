@@ -141,7 +141,7 @@ draft
 | /                     | Home                 | Gradient hero, PrepLock badge, category chips |
 | /restaurants          | Restaurants          | Filter by category/search, approved only |
 | /restaurants/:id      | RestaurantDetail     | Menu + cart, real-time stock |
-| /checkout             | Checkout             | PrepLock info, DA totals, validation |
+| /checkout             | Checkout             | Zone selector, zone-based delivery fee, DA totals, validation |
 | /orders               | Orders               | Live status, needs_update alert |
 | /orders/:id           | OrderTracking        | 17-step timeline, QR delivery |
 | /auth/login           | Login                | Also /connexion — demo quick-fill |
@@ -185,6 +185,28 @@ pnpm --filter @workspace/api-server run seed              # Seed demo data
 import { NotificationBell } from "@/components/ui/NotificationBell";
 // Always named export — NOT default export
 ```
+
+## Currency Formatting
+
+All monetary values use the `formatDA()` utility from `src/lib/format.ts`:
+
+```ts
+import { formatDA } from "@/lib/format";
+formatDA(1500)  // → "1 500 DA"  (French space as thousands separator, no decimals)
+formatDA(250)   // → "250 DA"
+```
+
+Never use `.toFixed(2) + " DA"` — always use `formatDA()` for consistency.
+
+## Zone-Based Delivery Fee
+
+Delivery fees follow this priority chain (server-side in `POST /api/orders`):
+1. Zone fee (`zones.delivery_fee`) — if customer selected a zone at checkout
+2. Platform default (`platform_settings.default_delivery_fee`) — currently 200 DA
+3. Fallback: 350 DA
+
+**Admin**: Zones section lets admins set/edit fee per zone inline.
+**Checkout**: City → Zone dropdowns show `Zone name — X DA`. Selecting a zone updates the order summary live.
 
 ## Missing Orval hooks (use direct fetch/useMutation)
 

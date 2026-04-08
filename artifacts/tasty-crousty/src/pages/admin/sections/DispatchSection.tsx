@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatDA } from "@/lib/format";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -184,7 +185,7 @@ export function DispatchSection() {
                       <p className="text-xs text-slate-400 truncate">{order.deliveryAddress}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold text-slate-800">{Number(order.total).toFixed(2)} DA</span>
+                      <span className="text-sm font-bold text-slate-800">{formatDA(order.total)}</span>
                       <Button size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={() => handleRetry(order.id)}>
                         <Radio className="w-3 h-3 mr-1" /> Dispatcher
                       </Button>
@@ -218,7 +219,7 @@ export function DispatchSection() {
                       <p className="text-xs text-slate-400 truncate">{order.deliveryAddress}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold text-slate-800">{Number(order.total).toFixed(2)} DA</span>
+                      <span className="text-sm font-bold text-slate-800">{formatDA(order.total)}</span>
                       <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => handleRetry(order.id)}>
                         <RotateCcw className="w-3 h-3 mr-1" /> Relancer
                       </Button>

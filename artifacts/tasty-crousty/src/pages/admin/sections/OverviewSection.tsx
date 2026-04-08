@@ -1,4 +1,5 @@
 import React from "react";
+import { formatDA } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -133,8 +134,8 @@ export function OverviewSection({ dashboard, onNavigate }: {
         <KpiCard title="Livrées aujourd'hui" value={dashboard.deliveredToday} sub="commandes" icon={<CheckCircle className="w-4 h-4" />} color="text-green-600" />
         <KpiCard
           title="Revenu du jour"
-          value={`${Number(dashboard.revenueToday).toFixed(0)} DA`}
-          sub={`Total: ${Number(dashboard.revenueTotal).toFixed(0)} DA`}
+          value={formatDA(dashboard.revenueToday)}
+          sub={`Total: ${formatDA(dashboard.revenueTotal)}`}
           icon={<TrendingUp className="w-4 h-4" />}
           color="text-emerald-600"
         />

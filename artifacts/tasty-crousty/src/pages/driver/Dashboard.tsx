@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatDA } from "@/lib/format";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -296,7 +297,7 @@ export default function DriverDashboard() {
             <div className="text-xs text-muted-foreground mt-0.5">Note</div>
           </div>
           <div className="bg-white rounded-2xl p-3 text-center border shadow-sm">
-            <div className="text-xl font-bold text-green-600">{Number(stats?.earningsToday ?? 0).toFixed(0)} DA</div>
+            <div className="text-xl font-bold text-green-600">{formatDA(stats?.earningsToday ?? 0)}</div>
             <div className="text-xs text-muted-foreground mt-0.5">Gains</div>
           </div>
         </div>
@@ -587,7 +588,7 @@ export default function DriverDashboard() {
               {/* Total */}
               <div className="flex items-center justify-between pt-1">
                 <span className="text-xs text-muted-foreground">Montant commande</span>
-                <span className="font-bold text-primary text-lg">{Number(activeDelivery.total).toFixed(2)} DA</span>
+                <span className="font-bold text-primary text-lg">{formatDA(activeDelivery.total)}</span>
               </div>
             </CardContent>
           </Card>

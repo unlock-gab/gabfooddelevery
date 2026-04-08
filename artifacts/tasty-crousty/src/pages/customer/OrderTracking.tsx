@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatDA } from "@/lib/format";
 import { useParams, Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
@@ -449,22 +450,22 @@ export default function OrderTracking() {
                     <span className="text-muted-foreground">
                       <span className="text-foreground font-semibold">{item.quantity}×</span> {item.productName}
                     </span>
-                    <span className="font-semibold tabular-nums">{(item.price * item.quantity).toFixed(2)} DA</span>
+                    <span className="font-semibold tabular-nums">{formatDA(item.price * item.quantity)}</span>
                   </div>
                 ))}
               </div>
               <Separator className="my-3" />
               <div className="space-y-1.5 text-sm">
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Sous-total</span><span className="tabular-nums">{Number(orderData.subtotal).toFixed(2)} DA</span>
+                  <span>Sous-total</span><span className="tabular-nums">{formatDA(orderData.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Livraison</span><span className="tabular-nums">{Number(orderData.deliveryFee).toFixed(2)} DA</span>
+                  <span>Livraison</span><span className="tabular-nums">{formatDA(orderData.deliveryFee)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-bold text-base">
                   <span>Total</span>
-                  <span className="text-primary tabular-nums">{Number(orderData.total).toFixed(2)} DA</span>
+                  <span className="text-primary tabular-nums">{formatDA(orderData.total)}</span>
                 </div>
               </div>
             </div>

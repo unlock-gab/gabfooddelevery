@@ -2,7 +2,8 @@ import React from "react";
 import { MissionRequest } from "@workspace/api-client-react";
 import { Card, CardContent, CardFooter } from "./card";
 import { Button } from "./button";
-import { MapPin, Navigation, Clock, Euro } from "lucide-react";
+import { MapPin, Navigation, Clock, Banknote } from "lucide-react";
+import { formatDA } from "@/lib/format";
 
 interface MissionCardProps {
   mission: MissionRequest;
@@ -19,8 +20,8 @@ export function MissionCard({ mission, onAccept, onReject }: MissionCardProps) {
             Nouvelle Mission
           </div>
           <div className="text-lg font-bold text-primary flex items-center gap-1">
-            <Euro className="w-5 h-5" />
-            {mission.estimatedEarnings?.toFixed(2) || "N/A"}
+            <Banknote className="w-5 h-5" />
+            {mission.estimatedEarnings != null ? formatDA(mission.estimatedEarnings) : "N/A"}
           </div>
         </div>
 

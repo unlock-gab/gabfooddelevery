@@ -4,6 +4,7 @@ import { StatusBadge } from "./StatusBadge";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "./card";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { formatDA } from "@/lib/format";
 
 interface OrderCardProps {
   order: Order;
@@ -30,7 +31,7 @@ export function OrderCard({ order, onClick, showCustomer }: OrderCardProps) {
         <div className="grid gap-1 text-sm">
           <div className="font-medium">{order.restaurantName}</div>
           {showCustomer && <div className="text-muted-foreground">{order.deliveryAddress}</div>}
-          <div className="font-semibold text-primary mt-2">{order.total.toFixed(2)} DA</div>
+          <div className="font-semibold text-primary mt-2">{formatDA(order.total)}</div>
         </div>
       </CardContent>
     </Card>

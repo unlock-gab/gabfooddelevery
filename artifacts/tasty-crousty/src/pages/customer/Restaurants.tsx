@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { formatDA } from "@/lib/format";
 import { Navbar } from "@/components/layout/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ function RestaurantCard({ r }: { r: any }) {
               <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary/80 font-medium">{r.category}</span>
             )}
             {r.minimumOrder > 0 && (
-              <span className="text-xs text-muted-foreground">Min. {Number(r.minimumOrder).toFixed(0)} DA</span>
+              <span className="text-xs text-muted-foreground">Min. {formatDA(r.minimumOrder)}</span>
             )}
           </div>
         </CardContent>

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { formatDA } from "@/lib/format";
 import { useParams, useLocation, Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
@@ -78,7 +79,7 @@ function ProductCard({ product, cartQty, onAdd, onInc, onDec, isUpdating }: {
           )}
         </div>
         <div className="flex items-center justify-between mt-2">
-          <span className="font-bold text-primary text-lg tabular-nums">{Number(product.price).toFixed(2)} DA</span>
+          <span className="font-bold text-primary text-lg tabular-nums">{formatDA(product.price)}</span>
           {product.isAvailable && (
             cartQty > 0 ? (
               <QtyControl value={cartQty} onInc={onInc} onDec={onDec} loading={isUpdating} />
@@ -134,7 +135,7 @@ function CartPanel({ cart, restaurant, onCheckout }: {
               {item.quantity}
             </span>
             <span className="flex-1 truncate text-sm">{item.productName}</span>
-            <span className="font-semibold text-sm shrink-0 tabular-nums">{(item.price * item.quantity).toFixed(2)} DA</span>
+            <span className="font-semibold text-sm shrink-0 tabular-nums">{formatDA(item.price * item.quantity)}</span>
           </div>
         ))}
       </div>
@@ -143,20 +144,20 @@ function CartPanel({ cart, restaurant, onCheckout }: {
         <div className="space-y-1 text-sm">
           <div className="flex justify-between text-muted-foreground">
             <span>Sous-total</span>
-            <span className="tabular-nums">{subtotal.toFixed(2)} DA</span>
+            <span className="tabular-nums">{formatDA(subtotal)}</span>
           </div>
           <div className="flex justify-between text-muted-foreground">
             <span>Livraison</span>
-            <span className="tabular-nums">{deliveryFee > 0 ? `${deliveryFee.toFixed(2)} DA` : "Gratuite"}</span>
+            <span className="tabular-nums">{deliveryFee > 0 ? formatDA(deliveryFee) : "Gratuite"}</span>
           </div>
           <div className="flex justify-between font-bold text-base pt-1 border-t">
             <span>Total</span>
-            <span className="text-primary tabular-nums">{total.toFixed(2)} DA</span>
+            <span className="text-primary tabular-nums">{formatDA(total)}</span>
           </div>
         </div>
         <Button className="w-full gap-2 h-11 text-sm font-semibold rounded-xl" onClick={onCheckout}>
           <ShoppingCart className="w-4 h-4" />
-          Commander — {total.toFixed(2)} DA
+          Commander — {formatDA(total)}
         </Button>
       </div>
     </div>
@@ -321,7 +322,7 @@ export default function RestaurantDetail() {
               {restaurant.estimatedPrepTime} min de préparation
             </span>
             {restaurant.minimumOrder > 0 && (
-              <span>Commande min. {Number(restaurant.minimumOrder).toFixed(0)} DA</span>
+              <span>Commande min. {formatDA(restaurant.minimumOrder)}</span>
             )}
             {restaurant.description && (
               <span className="w-full text-sm text-foreground/70 flex items-start gap-1.5">
@@ -432,7 +433,7 @@ export default function RestaurantDetail() {
               </span>
               Voir le panier
             </div>
-            <span className="ml-auto font-bold tabular-nums">{cartTotal.toFixed(2)} DA</span>
+            <span className="ml-auto font-bold tabular-nums">{formatDA(cartTotal)}</span>
           </Button>
         </div>
       )}

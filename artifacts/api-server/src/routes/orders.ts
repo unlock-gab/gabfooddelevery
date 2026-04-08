@@ -4,7 +4,7 @@ import {
   ordersTable, orderItemsTable, orderStatusHistoryTable, qrDeliveryTokensTable,
   restaurantsTable, usersTable, dispatchAttemptsTable, driverProfilesTable,
   customerProfilesTable, cartTable, cartItemsTable, paymentsTable, productsTable,
-  fraudFlagsTable,
+  fraudFlagsTable, zonesTable, platformSettingsTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, count } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
@@ -105,7 +105,18 @@ router.post("/orders", authenticate, async (req, res): Promise<void> => {
   }
 
   const orderNumber = `TC-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  const deliveryFee = 3.00;
+
+  // Zone-based delivery fee: zone fee → platform default → 350 DA fallback
+  let deliveryFee = 350;
+  if (zoneId) {
+    const [zone] = await db.select().from(zonesTable).where(eq(zonesTable.id, Number(zoneId)));
+    if (zone?.deliveryFee) deliveryFee = Number(zone.deliveryFee);
+  }
+  if (deliveryFee === 350) {
+    const [setting] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.key, "default_delivery_fee"));
+    if (setting?.value) deliveryFee = Number(setting.value) || 350;
+  }
+
   const total = subtotal + deliveryFee;
 
   const [order] = await db.insert(ordersTable).values({

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { useGetCart, useCreateOrder } from "@workspace/api-client-react";
+import { useGetCart, useCreateOrder, useListCities, useListZones } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, MapPin, CreditCard, Truck, ChevronLeft, Banknote, Wifi, Lock, Shield } from "lucide-react";
+import { ShoppingCart, MapPin, CreditCard, ChevronLeft, Banknote, Wifi, Lock, Shield, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatDA } from "@/lib/format";
 
 function SectionTitle({ icon: Icon, children }: { icon: any; children: React.ReactNode }) {
   return (
@@ -40,6 +41,32 @@ export default function Checkout() {
     paymentMethod: "cash_on_delivery" as "cash_on_delivery" | "online",
   });
 
+  const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
+  const [zoneDeliveryFee, setZoneDeliveryFee] = useState<number | null>(null);
+
+  const { data: cities } = useListCities(undefined, { query: { staleTime: 60000 } });
+  const { data: zones } = useListZones(selectedCityId!, {
+    query: { enabled: !!selectedCityId, staleTime: 30000 },
+  });
+
+  // When zone changes, update the delivery fee preview
+  useEffect(() => {
+    if (selectedZoneId && zones) {
+      const zone = zones.find((z: any) => z.id === selectedZoneId);
+      setZoneDeliveryFee(zone?.deliveryFee != null ? Number(zone.deliveryFee) : null);
+    } else {
+      setZoneDeliveryFee(null);
+    }
+  }, [selectedZoneId, zones]);
+
+  // Reset zone when city changes
+  const handleCityChange = (cityId: number | null) => {
+    setSelectedCityId(cityId);
+    setSelectedZoneId(null);
+    setZoneDeliveryFee(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!cart || (cart as any).items.length === 0) {
@@ -64,6 +91,7 @@ export default function Checkout() {
           deliveryFloor: form.deliveryFloor || undefined,
           deliveryInstructions: form.deliveryInstructions || undefined,
           deliveryPhone: form.deliveryPhone || undefined,
+          zoneId: selectedZoneId ?? undefined,
           paymentMethod: form.paymentMethod,
           items: (cart as any).items.map((item: any) => ({
             productId: item.productId,
@@ -127,7 +155,8 @@ export default function Checkout() {
 
   const cartData = cart as any;
   const subtotal = cartData.items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
-  const deliveryFee = cartData.deliveryFee ?? 0;
+  // Use zone fee if selected, else fall back to cart's stored fee
+  const deliveryFee = zoneDeliveryFee ?? (cartData.deliveryFee ?? 0);
   const total = subtotal + deliveryFee;
 
   return (
@@ -149,6 +178,52 @@ export default function Checkout() {
               <div className="bg-white rounded-2xl border p-6 shadow-sm">
                 <SectionTitle icon={MapPin}>Adresse de livraison</SectionTitle>
                 <div className="space-y-4">
+                  {/* Zone selector */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-sm font-semibold">Ville</Label>
+                      <div className="relative mt-1.5">
+                        <select
+                          className="w-full h-11 rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          value={selectedCityId ?? ""}
+                          onChange={e => handleCityChange(e.target.value ? Number(e.target.value) : null)}
+                        >
+                          <option value="">Sélectionner une ville…</option>
+                          {cities?.filter((c: any) => c.isActive).map((city: any) => (
+                            <option key={city.id} value={city.id}>{city.name}</option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-semibold">
+                        Zone de livraison
+                        {selectedZoneId && zoneDeliveryFee != null && (
+                          <span className="ml-2 text-xs font-normal text-primary">
+                            — {formatDA(zoneDeliveryFee)}
+                          </span>
+                        )}
+                      </Label>
+                      <div className="relative mt-1.5">
+                        <select
+                          className="w-full h-11 rounded-md border border-input bg-background px-3 py-2 text-sm appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50"
+                          value={selectedZoneId ?? ""}
+                          onChange={e => setSelectedZoneId(e.target.value ? Number(e.target.value) : null)}
+                          disabled={!selectedCityId}
+                        >
+                          <option value="">{selectedCityId ? "Sélectionner une zone…" : "Ville d'abord"}</option>
+                          {zones?.filter((z: any) => z.isActive).map((zone: any) => (
+                            <option key={zone.id} value={zone.id}>
+                              {zone.name}{zone.deliveryFee ? ` — ${formatDA(zone.deliveryFee)}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <Label className="text-sm font-semibold">Adresse <span className="text-red-500">*</span></Label>
                     <Input
@@ -189,7 +264,7 @@ export default function Checkout() {
                     />
                   </div>
                   <div>
-                    <Label className="text-sm font-semibold">Téléphone de contact</Label>
+                    <Label className="text-sm font-semibold">Téléphone de contact <span className="text-red-500">*</span></Label>
                     <Input
                       type="tel"
                       placeholder="+213 5XX XXX XXX"
@@ -277,7 +352,7 @@ export default function Checkout() {
                         <span className="flex-1 truncate text-muted-foreground">
                           <span className="text-foreground font-medium">{item.quantity}×</span> {item.productName}
                         </span>
-                        <span className="font-semibold ml-2 tabular-nums">{(item.price * item.quantity).toFixed(2)} DA</span>
+                        <span className="font-semibold ml-2 tabular-nums">{formatDA(item.price * item.quantity)}</span>
                       </div>
                     ))}
                   </div>
@@ -287,16 +362,23 @@ export default function Checkout() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between text-muted-foreground">
                       <span>Sous-total</span>
-                      <span className="tabular-nums">{subtotal.toFixed(2)} DA</span>
+                      <span className="tabular-nums">{formatDA(subtotal)}</span>
                     </div>
                     <div className="flex justify-between text-muted-foreground">
-                      <span>Frais de livraison</span>
-                      <span className="tabular-nums">{deliveryFee > 0 ? `${deliveryFee.toFixed(2)} DA` : "Gratuite"}</span>
+                      <span className="flex items-center gap-1">
+                        Frais de livraison
+                        {selectedZoneId && (
+                          <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">zone</span>
+                        )}
+                      </span>
+                      <span className="tabular-nums">
+                        {deliveryFee > 0 ? formatDA(deliveryFee) : "Gratuite"}
+                      </span>
                     </div>
                     <Separator />
                     <div className="flex justify-between font-bold text-base pt-1">
                       <span>Total</span>
-                      <span className="text-primary tabular-nums">{total.toFixed(2)} DA</span>
+                      <span className="text-primary tabular-nums">{formatDA(total)}</span>
                     </div>
                   </div>
 
@@ -315,7 +397,7 @@ export default function Checkout() {
                     disabled={createOrder.isPending}
                   >
                     <Shield className="w-4 h-4" />
-                    {createOrder.isPending ? "Traitement..." : `Confirmer — ${total.toFixed(2)} DA`}
+                    {createOrder.isPending ? "Traitement..." : `Confirmer — ${formatDA(total)}`}
                   </Button>
 
                   <p className="text-xs text-center text-muted-foreground">

@@ -1,4 +1,5 @@
 import React from "react";
+import { formatDA } from "@/lib/format";
 import { Link } from "wouter";
 import { Navbar } from "@/components/layout/Navbar";
 import { Button } from "@/components/ui/button";
@@ -117,7 +118,7 @@ function OrderRow({ order }: { order: any }) {
               )}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm text-primary tabular-nums">{Number(order.total).toFixed(2)} DA</span>
+              <span className="font-bold text-sm text-primary tabular-nums">{formatDA(order.total)}</span>
               <ChevronRight className="w-4 h-4 text-muted-foreground/50" />
             </div>
           </div>
