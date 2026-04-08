@@ -176,7 +176,7 @@ export default function AccountScreen() {
         </Text>
         <TouchableOpacity
           style={{ backgroundColor: colors.primary, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 }}
-          onPress={() => router.replace("/" as any)}
+          onPress={() => router.push("/(auth)/login" as any)}
         >
           <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Se connecter</Text>
         </TouchableOpacity>
