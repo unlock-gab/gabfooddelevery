@@ -40,7 +40,7 @@ function useOverrideDelivery() {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  placed: "Placée", awaiting_driver_assignment: "Attente livreur",
+  pending_dispatch: "En attente", placed: "Placée",
   dispatching_driver: "Dispatch en cours", driver_assigned: "Livreur assigné",
   awaiting_customer_confirmation: "Attente confirmation", needs_update: "MAJ requise",
   confirmation_failed: "Confirmation échouée", confirmed_for_preparation: "Confirmée PrepLock™",
@@ -51,8 +51,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_COLORS: Record<string, string> = {
+  pending_dispatch: "bg-amber-100 text-amber-800",
   placed: "bg-slate-100 text-slate-700",
-  awaiting_driver_assignment: "bg-amber-100 text-amber-800",
   dispatching_driver: "bg-blue-100 text-blue-800",
   driver_assigned: "bg-blue-100 text-blue-800",
   awaiting_customer_confirmation: "bg-orange-100 text-orange-800",
@@ -84,9 +84,9 @@ const STATUS_FILTERS = [
 ];
 
 const ACTIVE_STATUSES = [
-  "placed", "awaiting_driver_assignment", "dispatching_driver", "driver_assigned",
+  "pending_dispatch", "dispatching_driver", "driver_assigned",
   "awaiting_customer_confirmation", "needs_update", "confirmed_for_preparation",
-  "preparing", "ready_for_pickup", "driver_at_restaurant", "picked_up", "on_the_way", "arriving",
+  "preparing", "ready_for_pickup", "picked_up", "on_the_way", "arriving_soon",
 ];
 
 export function OrdersSection() {
@@ -238,7 +238,7 @@ export function OrdersSection() {
                       <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setSelectedOrderId(order.id)}>
                         <Eye className="w-3 h-3" />
                       </Button>
-                      {(order.status === "dispatching_driver" || order.status === "awaiting_driver_assignment") && (
+                      {(order.status === "dispatching_driver" || order.status === "pending_dispatch") && (
                         <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-blue-600" onClick={() => handleRedispatch(order.id)}>
                           <Radio className="w-3 h-3" />
                         </Button>
@@ -376,7 +376,7 @@ export function OrdersSection() {
                     <XCircle className="w-3 h-3 mr-1" /> Annuler
                   </Button>
                 )}
-                {["dispatching_driver", "awaiting_driver_assignment"].includes(orderDetail.status) && (
+                {["dispatching_driver", "pending_dispatch"].includes(orderDetail.status) && (
                   <Button size="sm" className="text-xs h-7 bg-blue-600 hover:bg-blue-700"
                     onClick={() => { handleRedispatch(orderDetail.id); setSelectedOrderId(null); }}>
                     <Radio className="w-3 h-3 mr-1" /> Redispatching

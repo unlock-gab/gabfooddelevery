@@ -53,7 +53,7 @@ export function DispatchSection() {
     { query: { refetchInterval: 10000 } }
   );
   const { data: awaitingData, refetch: refetchAwaiting } = useListOrders(
-    { status: "awaiting_driver_assignment" },
+    { status: "pending_dispatch" },
     { query: { refetchInterval: 10000 } }
   );
   const { data: dispatchAttempts } = useGetDispatchAttempts(

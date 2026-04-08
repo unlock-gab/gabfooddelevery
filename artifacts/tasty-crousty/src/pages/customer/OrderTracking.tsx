@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { QRCodeDisplay } from "@/components/ui/QRCodeDisplay";
-import { useGetOrder } from "@workspace/api-client-react";
+import { useGetOrder, useCancelOrder } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   ChevronLeft, Package, MapPin, Phone, RefreshCw, Clock,
@@ -318,6 +318,27 @@ export default function OrderTracking() {
   const needsCorrection = status === "needs_update";
   const msgCfg = STATUS_MESSAGES[status];
 
+  const cancelMutation = useCancelOrder();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const cancellableStatuses = ["pending_dispatch", "dispatching_driver", "driver_assigned"];
+  const canCancel = cancellableStatuses.includes(status);
+
+  const handleCancelOrder = () => {
+    cancelMutation.mutate(
+      { orderId, data: { reason: "Annulé par le client" } },
+      {
+        onSuccess: () => {
+          setShowCancelConfirm(false);
+          toast({ title: "Commande annulée", description: "Votre commande a été annulée avec succès." });
+          refetch();
+        },
+        onError: () => {
+          toast({ title: "Erreur", description: "Impossible d'annuler cette commande.", variant: "destructive" });
+        },
+      }
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50/60">
       <Navbar />
@@ -431,6 +452,55 @@ export default function OrderTracking() {
 
         {needsCorrection && (
           <CorrectionForm orderId={orderId} onSuccess={() => refetch()} />
+        )}
+
+        {/* Cancel order button */}
+        {canCancel && !showCancelConfirm && (
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 gap-2"
+              onClick={() => setShowCancelConfirm(true)}
+            >
+              <AlertCircle className="w-4 h-4" />
+              Annuler ma commande
+            </Button>
+          </div>
+        )}
+
+        {/* Cancel confirmation */}
+        {showCancelConfirm && (
+          <div className="border-2 border-red-200 bg-red-50 rounded-2xl p-5 space-y-3">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-red-800 text-sm">Confirmer l'annulation</p>
+                <p className="text-red-700 text-xs mt-0.5">
+                  Êtes-vous sûr de vouloir annuler cette commande ? Cette action est irréversible.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 border-gray-200"
+                onClick={() => setShowCancelConfirm(false)}
+                disabled={cancelMutation.isPending}
+              >
+                Non, garder
+              </Button>
+              <Button
+                size="sm"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                onClick={handleCancelOrder}
+                disabled={cancelMutation.isPending}
+              >
+                {cancelMutation.isPending ? "Annulation..." : "Oui, annuler"}
+              </Button>
+            </div>
+          </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

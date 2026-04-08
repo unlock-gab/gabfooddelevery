@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import React, { useState, useEffect } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -116,7 +117,48 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
   const missions = availableMissions as any[];
   const isLoading = loadingAvailable || loadingActive;
 
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+
   const refetchAll = () => { refetchAvailable(); refetchActive(); };
+
+  const handleCancelMission = (orderId: number, orderNumber: string) => {
+    Alert.alert(
+      "Annuler la mission ?",
+      `La commande ${orderNumber} sera remise en attente et un autre livreur sera contacté.`,
+      [
+        { text: "Non, continuer", style: "cancel" },
+        {
+          text: "Oui, annuler",
+          style: "destructive",
+          onPress: async () => {
+            setCancellingId(orderId);
+            try {
+              const { default: AsyncStorage } = await import("@react-native-async-storage/async-storage");
+              const token = await AsyncStorage.getItem("tc_token");
+              const res = await fetch(
+                `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/driver/missions/${orderId}/cancel`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                  body: JSON.stringify({ reason: "Annulé par le livreur" }),
+                }
+              );
+              if (res.ok) {
+                await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                refetchAll();
+              } else {
+                const err = await res.json();
+                Alert.alert("Impossible d'annuler", err.error ?? "Erreur inconnue");
+              }
+            } catch {
+              Alert.alert("Erreur réseau", "Vérifiez votre connexion et réessayez.");
+            }
+            setCancellingId(null);
+          },
+        },
+      ]
+    );
+  };
 
   const handleAccept = async (orderId: number) => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -282,30 +324,50 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
                   En cours ({activeOrders.length})
                 </Text>
               </View>
-              {activeOrders.map((item: any) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[ds.missionCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-                  onPress={() => router.push(`/order/${item.id}` as any)}
-                  activeOpacity={0.85}
-                >
-                  <View style={[ds.missionStatus, { backgroundColor: `${getStatusColor(item.status)}20` }]}>
-                    <Text style={[ds.missionStatusText, { color: getStatusColor(item.status) }]}>
-                      {getStatusLabel(item.status)}
-                    </Text>
+              {activeOrders.map((item: any) => {
+                const cancellableDriverStatuses = ["driver_assigned", "awaiting_customer_confirmation", "needs_update", "confirmation_failed"];
+                const canCancel = cancellableDriverStatuses.includes(item.status);
+                return (
+                  <View key={item.id} style={[ds.missionCard, { backgroundColor: colors.card, borderColor: colors.border, padding: 0, overflow: "hidden" }]}>
+                    <TouchableOpacity
+                      style={{ padding: 14 }}
+                      onPress={() => router.push(`/order/${item.id}` as any)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={[ds.missionStatus, { backgroundColor: `${getStatusColor(item.status)}20` }]}>
+                        <Text style={[ds.missionStatusText, { color: getStatusColor(item.status) }]}>
+                          {getStatusLabel(item.status)}
+                        </Text>
+                      </View>
+                      <Text style={[ds.missionRestaurant, { color: colors.foreground }]}>
+                        {item.restaurantName ?? `Commande #${item.id}`}
+                      </Text>
+                      <Text style={[ds.missionAddress, { color: colors.mutedForeground }]} numberOfLines={1}>
+                        {item.deliveryAddress}
+                      </Text>
+                      <View style={ds.missionFooter}>
+                        <Text style={[ds.missionAmount, { color: colors.primary }]}>{formatDA(item.total)}</Text>
+                        <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+                      </View>
+                    </TouchableOpacity>
+                    {canCancel && (
+                      <TouchableOpacity
+                        style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingVertical: 10, alignItems: "center", backgroundColor: "#FEF2F2" }}
+                        onPress={() => handleCancelMission(item.id, item.orderNumber ?? `#${item.id}`)}
+                        disabled={cancellingId === item.id}
+                      >
+                        {cancellingId === item.id ? (
+                          <ActivityIndicator size="small" color="#EF4444" />
+                        ) : (
+                          <Text style={{ color: "#EF4444", fontSize: 13, fontWeight: "600" }}>
+                            ✕ Annuler cette mission
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
                   </View>
-                  <Text style={[ds.missionRestaurant, { color: colors.foreground }]}>
-                    {item.restaurantName ?? `Commande #${item.id}`}
-                  </Text>
-                  <Text style={[ds.missionAddress, { color: colors.mutedForeground }]} numberOfLines={1}>
-                    {item.deliveryAddress}
-                  </Text>
-                  <View style={ds.missionFooter}>
-                    <Text style={[ds.missionAmount, { color: colors.primary }]}>{formatDA(item.total)}</Text>
-                    <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
-                  </View>
-                </TouchableOpacity>
-              ))}
+                );
+              })}
             </View>
           )}
 

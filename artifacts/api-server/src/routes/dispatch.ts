@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, dispatchAttemptsTable, driverProfilesTable, usersTable, orderStatusHistoryTable, deliveryConfirmationsTable, customerProfilesTable, restaurantsTable, fraudFlagsTable, notificationsTable } from "@workspace/db";
-import { eq, and, desc, or, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
 import { createNotification } from "../lib/notifications";
 import { lockDriverAssignment, retryPendingDispatch } from "../lib/dispatch-engine";
@@ -69,6 +69,25 @@ router.get("/dispatch/:orderId/attempts", authenticate, async (req, res): Promis
 router.get("/driver/missions/available", authenticate, requireRole("driver"), async (req, res): Promise<void> => {
   const user = (req as any).user;
 
+  // If driver already has an ACTIVE mission, return empty — they must finish it first
+  const activeMissionStatuses = [
+    "driver_assigned", "awaiting_customer_confirmation", "needs_update",
+    "confirmation_failed", "confirmed_for_preparation", "preparing",
+    "ready_for_pickup", "picked_up", "on_the_way", "arriving_soon",
+  ];
+  const [activeMission] = await db.select({ id: ordersTable.id })
+    .from(ordersTable)
+    .where(and(
+      eq(ordersTable.driverId, user.id),
+      inArray(ordersTable.status, activeMissionStatuses as any),
+    ))
+    .limit(1);
+
+  if (activeMission) {
+    res.json([]); // Driver is busy — no new missions until current delivery complete
+    return;
+  }
+
   // Get driver's cityId to filter by wilaya
   const [driverProfile] = await db.select({ cityId: driverProfilesTable.cityId })
     .from(driverProfilesTable)
@@ -84,23 +103,10 @@ router.get("/driver/missions/available", authenticate, requireRole("driver"), as
     ));
   const pendingAttemptOrderIds = pendingAttempts.map(a => a.orderId).filter((id): id is number => id !== null);
 
-  // Build two conditions:
-  // 1. pending_dispatch orders filtered by driver's city
-  // 2. dispatching_driver orders where this driver was specifically notified
-  const pendingDispatchConditions: any[] = [eq(ordersTable.status, "pending_dispatch")];
-  if (driverCityId) {
-    pendingDispatchConditions.push(eq(restaurantsTable.cityId, driverCityId));
+  if (pendingAttemptOrderIds.length === 0) {
+    res.json([]);
+    return;
   }
-
-  const whereClause = pendingAttemptOrderIds.length > 0
-    ? or(
-        and(...pendingDispatchConditions),
-        and(
-          eq(ordersTable.status, "dispatching_driver"),
-          inArray(ordersTable.id, pendingAttemptOrderIds),
-        ),
-      )
-    : and(...pendingDispatchConditions);
 
   const orders = await db.select({
     order: ordersTable,
@@ -109,9 +115,12 @@ router.get("/driver/missions/available", authenticate, requireRole("driver"), as
   })
     .from(ordersTable)
     .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
-    .where(whereClause)
+    .where(and(
+      inArray(ordersTable.id, pendingAttemptOrderIds),
+      inArray(ordersTable.status, ["pending_dispatch", "dispatching_driver"] as any),
+    ))
     .orderBy(ordersTable.createdAt)
-    .limit(10);
+    .limit(5);
 
   res.json(orders.map(({ order, restaurantName, restaurantAddress }) => ({
     orderId: order.id,
@@ -120,8 +129,8 @@ router.get("/driver/missions/available", authenticate, requireRole("driver"), as
     restaurantAddress: restaurantAddress ?? "N/A",
     deliveryAddress: order.deliveryAddress,
     estimatedDistance: 3.5,
-    estimatedEarnings: Number(order.deliveryFee),
-    expiresAt: new Date(Date.now() + 60000).toISOString(),
+    estimatedEarnings: Number(order.deliveryFee) || 200,
+    expiresAt: new Date(Date.now() + 90000).toISOString(),
   })));
 });
 
@@ -139,29 +148,93 @@ router.post("/driver/missions/:orderId/accept", authenticate, requireRole("drive
   }
 
   const [updated] = await db.update(ordersTable)
-    .set({ driverId: user.id, status: "awaiting_customer_confirmation" })
+    .set({ driverId: user.id, status: "driver_assigned" })
     .where(eq(ordersTable.id, orderId))
     .returning();
 
   await addStatusHistory(orderId, "driver_assigned", `Livreur ${user.name} a accepté la mission`, `driver:${user.id}`);
-  await addStatusHistory(orderId, "awaiting_customer_confirmation", "En attente de confirmation client", `driver:${user.id}`);
 
   await createNotification({
     userId: order.customerId,
     type: "driver_assigned",
-    title: "Livreur assigné",
-    message: `Votre livreur est en route pour confirmer votre commande ${order.orderNumber}.`,
+    title: "Livreur assigné ! 🛵",
+    message: `${user.name} a accepté votre commande ${order.orderNumber} et est en route.`,
     relatedOrderId: orderId,
   });
 
-  res.json({ ...updated, subtotal: Number(updated.subtotal), deliveryFee: Number(updated.deliveryFee), total: Number(updated.total), restaurantName: "", driverName: user.name, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
+  // Notify restaurant too
+  const [restaurant] = await db.select({ userId: restaurantsTable.userId, name: restaurantsTable.name })
+    .from(restaurantsTable).where(eq(restaurantsTable.id, order.restaurantId));
+  if (restaurant) {
+    await createNotification({
+      userId: restaurant.userId,
+      type: "driver_assigned",
+      title: "Livreur assigné",
+      message: `${user.name} a été assigné à la commande ${order.orderNumber}.`,
+      relatedOrderId: orderId,
+    });
+  }
+
+  res.json({ ...updated, subtotal: Number(updated.subtotal), deliveryFee: Number(updated.deliveryFee), total: Number(updated.total), restaurantName: restaurant?.name ?? "", driverName: user.name, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
 });
 
 router.post("/driver/missions/:orderId/reject", authenticate, requireRole("driver"), async (req, res): Promise<void> => {
   const user = (req as any).user;
   const orderId = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
-  await db.insert(dispatchAttemptsTable).values({ orderId, driverId: user.id, result: "rejected" });
-  res.json({ success: true, message: "Mission rejected" });
+
+  // Update existing pending attempt to rejected (don't insert a duplicate)
+  const updated = await db.update(dispatchAttemptsTable)
+    .set({ result: "rejected" as any, respondedAt: new Date() })
+    .where(and(
+      eq(dispatchAttemptsTable.orderId, orderId),
+      eq(dispatchAttemptsTable.driverId, user.id),
+      eq(dispatchAttemptsTable.result, "pending" as any),
+    ));
+
+  res.json({ success: true, message: "Mission refusée" });
+});
+
+// DRIVER CANCEL an accepted mission
+router.post("/driver/missions/:orderId/cancel", authenticate, requireRole("driver"), async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const orderId = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
+  const { reason } = req.body;
+
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+  if (!order) { res.status(404).json({ error: "Commande introuvable" }); return; }
+  if (order.driverId !== user.id) { res.status(403).json({ error: "Ce n'est pas votre mission" }); return; }
+
+  const cancellableByDriver = ["driver_assigned", "awaiting_customer_confirmation", "needs_update", "confirmation_failed"];
+  if (!cancellableByDriver.includes(order.status)) {
+    res.status(400).json({ error: "Vous ne pouvez plus annuler cette mission (commande déjà en préparation ou livrée)" });
+    return;
+  }
+
+  // Release driver from order — put back to pending_dispatch for re-dispatch
+  const [updated] = await db.update(ordersTable)
+    .set({ driverId: null, status: "pending_dispatch" })
+    .where(eq(ordersTable.id, orderId))
+    .returning();
+
+  // Mark driver's accepted attempt as cancelled
+  await db.update(dispatchAttemptsTable)
+    .set({ result: "rejected" as any, respondedAt: new Date() })
+    .where(and(
+      eq(dispatchAttemptsTable.orderId, orderId),
+      eq(dispatchAttemptsTable.driverId, user.id),
+    ));
+
+  await addStatusHistory(orderId, "pending_dispatch", `Annulé par le livreur: ${reason ?? "Aucune raison"}`, `driver:${user.id}`);
+
+  await createNotification({
+    userId: order.customerId,
+    type: "cancelled",
+    title: "Livreur a annulé",
+    message: `Votre livreur a annulé la mission. Nous recherchons un nouveau livreur pour votre commande ${order.orderNumber}.`,
+    relatedOrderId: orderId,
+  });
+
+  res.json({ success: true, message: "Mission annulée — la commande sera re-dispatchée" });
 });
 
 router.post("/driver/confirm/:orderId", authenticate, requireRole("driver"), async (req, res): Promise<void> => {

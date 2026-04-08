@@ -9,7 +9,7 @@ import {
   ordersTable, driverProfilesTable, usersTable, dispatchAttemptsTable,
   orderStatusHistoryTable, restaurantsTable,
 } from "@workspace/db";
-import { eq, and, not, inArray } from "drizzle-orm";
+import { eq, and, ne, inArray, sql } from "drizzle-orm";
 import { createNotification } from "./notifications";
 
 interface DriverCandidate {
@@ -216,17 +216,17 @@ export async function lockDriverAssignment(orderId: number, driverId: number): P
 
   // Update driver acceptance rate
   await db.update(driverProfilesTable)
-    .set({ acceptanceRate: db.sql`LEAST(acceptance_rate + 2, 100)` as any })
+    .set({ acceptanceRate: sql`LEAST(acceptance_rate + 2, 100)` as any })
     .where(eq(driverProfilesTable.userId, driverId));
 
-  // Mark other pending attempts as missed
+  // Mark other pending attempts as timed-out (first driver wins)
   await db.update(dispatchAttemptsTable)
-    .set({ result: "missed" as any })
+    .set({ result: "timeout", respondedAt: new Date() })
     .where(
       and(
         eq(dispatchAttemptsTable.orderId, orderId),
-        eq(dispatchAttemptsTable.result, "pending" as any),
-        not(eq(dispatchAttemptsTable.driverId, driverId)),
+        eq(dispatchAttemptsTable.result, "pending"),
+        ne(dispatchAttemptsTable.driverId, driverId),
       ),
     );
 
