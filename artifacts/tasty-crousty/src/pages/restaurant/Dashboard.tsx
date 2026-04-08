@@ -145,7 +145,9 @@ function OrderCard({ order, onAction, compact }: { order: any; onAction: () => v
         <div className="shrink-0 flex items-center gap-3">
           <div className="text-right">
             <p className="text-sm font-bold text-slate-800">{formatDA(order.total)}</p>
-            <p className="text-[11px] text-slate-400">{order.items?.length ?? 0} art.</p>
+            <p className="text-[11px] text-slate-400">
+              {formatDA(order.subtotal)} + {formatDA(order.deliveryFee)} livraison
+            </p>
           </div>
           <StatusChip status={order.status} />
           <div className="w-24 flex justify-end gap-1.5">
@@ -173,6 +175,9 @@ function OrderCard({ order, onAction, compact }: { order: any; onAction: () => v
           <div>
             <p className="font-mono text-xs font-bold text-slate-500">{order.orderNumber}</p>
             <p className="text-sm font-bold text-slate-900 mt-0.5">{formatDA(order.total)}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              {formatDA(order.subtotal)} + {formatDA(order.deliveryFee)} livraison
+            </p>
           </div>
           <StatusChip status={order.status} />
         </div>
@@ -242,6 +247,7 @@ function PrepLockBanner({ orders }: { orders: any[] }) {
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-bold text-slate-800">{formatDA(o.total)}</p>
+                <p className="text-[10px] text-slate-400">{formatDA(o.subtotal)} + {formatDA(o.deliveryFee)} livraison</p>
                 <p className="text-xs text-amber-600 font-medium flex items-center justify-end gap-1 mt-0.5">
                   <Clock className="w-3 h-3" /> {wait} min
                 </p>

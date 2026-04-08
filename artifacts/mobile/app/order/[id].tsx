@@ -225,11 +225,33 @@ export default function OrderTrackingScreen() {
           </View>
         </View>
 
+        {/* Driver earnings card — shown when delivered */}
+        {isDriver && o.status === "delivered" && (
+          <View style={[s.earningsCard, { backgroundColor: "#10B981" }]}>
+            <View>
+              <Text style={s.earningsLabel}>🎉 Votre gain pour cette livraison</Text>
+              <Text style={s.earningsValue}>+{formatDA(o.deliveryFee ?? 0)}</Text>
+            </View>
+            <View style={s.earningsMeta}>
+              <Text style={s.earningsMetaText}>Frais de livraison</Text>
+              <Text style={s.earningsMetaText}>Total commande : {formatDA(o.total ?? 0)}</Text>
+            </View>
+          </View>
+        )}
+
         {/* Total */}
-        <View style={[s.totalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[s.totalLabel, { color: colors.mutedForeground }]}>Total payé</Text>
-          <Text style={[s.totalValue, { color: colors.primary }]}>{formatDA(o.total ?? o.totalAmount)}</Text>
-        </View>
+        {!isDriver && (
+          <View style={[s.totalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[s.totalLabel, { color: colors.mutedForeground }]}>Total payé</Text>
+            <Text style={[s.totalValue, { color: colors.primary }]}>{formatDA(o.total ?? 0)}</Text>
+          </View>
+        )}
+        {isDriver && o.status !== "delivered" && (
+          <View style={[s.totalCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Text style={[s.totalLabel, { color: colors.mutedForeground }]}>Gain estimé</Text>
+            <Text style={[s.totalValue, { color: colors.primary }]}>+{formatDA(o.deliveryFee ?? 0)}</Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Driver action button — fixed at bottom */}
@@ -283,4 +305,9 @@ const s = StyleSheet.create({
   actionBar: { position: "absolute", bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   actionBtn: { borderRadius: 16, paddingVertical: 16, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 6 },
   actionBtnText: { fontSize: 16, fontWeight: "800" as const },
+  earningsCard: { borderRadius: 16, padding: 18, gap: 10 },
+  earningsLabel: { fontSize: 12, color: "rgba(255,255,255,0.85)", fontWeight: "600" as const },
+  earningsValue: { fontSize: 34, fontWeight: "800" as const, color: "#fff", letterSpacing: -1, marginTop: 4 },
+  earningsMeta: { flexDirection: "row" as const, justifyContent: "space-between" as const, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.3)" },
+  earningsMetaText: { fontSize: 12, color: "rgba(255,255,255,0.75)" },
 });

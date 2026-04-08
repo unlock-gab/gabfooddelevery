@@ -38,9 +38,14 @@ function OrderItem({ order, colors }: { order: any; colors: any }) {
         {order.restaurantName ?? "Restaurant"}
       </Text>
       <View style={s.cardFooter}>
-        <Text style={[s.amount, { color: colors.primary }]}>
-          {formatDA(order.totalAmount)}
-        </Text>
+        <View>
+          <Text style={[s.amount, { color: colors.primary }]}>
+            +{formatDA(order.deliveryFee ?? order.total)}
+          </Text>
+          <Text style={{ fontSize: 10, color: colors.mutedForeground, marginTop: 1 }}>
+            Votre gain
+          </Text>
+        </View>
         <Text style={[s.date, { color: colors.mutedForeground }]}>
           {order.createdAt ? formatDate(order.createdAt) : ""}
         </Text>

@@ -408,11 +408,15 @@ router.post("/driver/deliver/:orderId", authenticate, requireRole("driver"), asy
   const [updated] = await db.update(ordersTable).set({ status: "delivered" }).where(eq(ordersTable.id, orderId)).returning();
   await addStatusHistory(orderId, "delivered", "Livraison effectuée", `driver:${user.id}`);
 
-  // Update driver delivery count
+  // Update driver delivery count + earnings
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, user.id));
   if (profile) {
+    const earned = Number(updated.deliveryFee) || 0;
     await db.update(driverProfilesTable)
-      .set({ totalDeliveries: profile.totalDeliveries + 1 })
+      .set({
+        totalDeliveries: profile.totalDeliveries + 1,
+        earningsTotal: sql`earnings_total + ${earned}`,
+      })
       .where(eq(driverProfilesTable.userId, user.id));
   }
 
@@ -467,13 +471,27 @@ router.post("/dispatch/retry-all", authenticate, requireRole("admin"), async (re
 router.get("/driver/stats", authenticate, requireRole("driver"), async (req, res): Promise<void> => {
   const user = (req as any).user;
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, user.id));
+
+  // Earnings today: sum deliveryFee of orders delivered today
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayOrders = await db.select({ deliveryFee: ordersTable.deliveryFee })
+    .from(ordersTable)
+    .where(and(
+      eq(ordersTable.driverId, user.id),
+      eq(ordersTable.status, "delivered"),
+      sql`${ordersTable.updatedAt} >= ${todayStart.toISOString()}`,
+    ));
+  const earningsToday = todayOrders.reduce((s, o) => s + Number(o.deliveryFee || 0), 0);
+  const completedToday = todayOrders.length;
+
   res.json({
     totalDeliveries: profile?.totalDeliveries ?? 0,
-    completedToday: 0,
+    completedToday,
     avgRating: Number(profile?.avgRating ?? 0),
     acceptanceRate: Number(profile?.acceptanceRate ?? 0),
     failedConfirmations: profile?.failedConfirmations ?? 0,
-    earningsToday: 0,
+    earningsToday,
     earningsTotal: Number(profile?.earningsTotal ?? 0),
     isOnline: profile?.isOnline ?? false,
     availability: profile?.availability ?? "offline",
