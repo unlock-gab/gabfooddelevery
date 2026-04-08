@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React from "react";
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
@@ -14,6 +15,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
+import { useGetDriverStats } from "@workspace/api-client-react";
+import { formatDA } from "@/utils/format";
 
 const ROLE_LABELS: Record<string, string> = {
   customer: "Client",
@@ -33,6 +36,7 @@ function MenuItem({
   icon,
   label,
   sublabel,
+  rightText,
   onPress,
   danger,
   colors,
@@ -40,6 +44,7 @@ function MenuItem({
   icon: string;
   label: string;
   sublabel?: string;
+  rightText?: string;
   onPress: () => void;
   danger?: boolean;
   colors: any;
@@ -77,8 +82,55 @@ function MenuItem({
           </Text>
         ) : null}
       </View>
-      <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+      {rightText ? (
+        <Text style={[s.menuRightText, { color: colors.primary }]}>{rightText}</Text>
+      ) : (
+        <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+      )}
     </TouchableOpacity>
+  );
+}
+
+function DriverEarningsCard({ colors }: { colors: any }) {
+  const { data: stats, isLoading } = useGetDriverStats({
+    query: { staleTime: 60000 },
+  });
+  const st = stats as any;
+
+  return (
+    <View style={[s.earningsCard, { backgroundColor: colors.primary }]}>
+      <Text style={s.earningsTitle}>Mes gains</Text>
+      {isLoading ? (
+        <ActivityIndicator color="#fff" style={{ marginTop: 8 }} />
+      ) : (
+        <>
+          <Text style={s.earningsAmount}>
+            {formatDA(st?.earningsTotal ?? 0)}
+          </Text>
+          <Text style={s.earningsSub}>Total cumulé</Text>
+          <View style={s.earningsRow}>
+            <View style={s.earningsStat}>
+              <Text style={s.earningsStatValue}>{st?.totalDeliveries ?? 0}</Text>
+              <Text style={s.earningsStatLabel}>Livraisons</Text>
+            </View>
+            <View style={[s.earningsDivider, { backgroundColor: "rgba(255,255,255,0.3)" }]} />
+            <View style={s.earningsStat}>
+              <Text style={s.earningsStatValue}>
+                {st?.avgRating ? Number(st.avgRating).toFixed(1) : "–"}
+              </Text>
+              <Text style={s.earningsStatLabel}>Note ★</Text>
+            </View>
+            <View style={[s.earningsDivider, { backgroundColor: "rgba(255,255,255,0.3)" }]} />
+            <View style={s.earningsStat}>
+              <Text style={s.earningsStatValue}>
+                {formatDA(st?.earningsToday ?? 0)}
+              </Text>
+              <Text style={s.earningsStatLabel}>Aujourd'hui</Text>
+            </View>
+          </View>
+        </>
+      )}
+    </View>
   );
 }
 
@@ -94,9 +146,11 @@ export default function AccountScreen() {
         text: "Déconnecter",
         style: "destructive",
         onPress: async () => {
-          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          try {
+            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          } catch {}
           await logout();
-          router.replace("/(auth)/login");
+          router.replace("/" as any);
         },
       },
     ]);
@@ -105,6 +159,7 @@ export default function AccountScreen() {
   if (!user) return null;
 
   const roleColor = ROLE_COLORS[user.role] ?? colors.primary;
+  const isDriver = user.role === "driver";
 
   return (
     <View style={[s.flex, { backgroundColor: colors.background }]}>
@@ -131,22 +186,31 @@ export default function AccountScreen() {
           </View>
         </View>
 
-        {/* PrepLock badge */}
-        <View style={[s.prepLockCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="lock-closed" size={20} color={colors.primary} />
-          <View style={s.prepLockText}>
-            <Text style={[s.prepLockTitle, { color: colors.foreground }]}>
-              Technologie PrepLock™
-            </Text>
-            <Text style={[s.prepLockDesc, { color: colors.mutedForeground }]}>
-              Votre repas commence à être préparé seulement après confirmation du livreur
-            </Text>
+        {/* Driver earnings */}
+        {isDriver && (
+          <View style={s.section}>
+            <DriverEarningsCard colors={colors} />
           </View>
-        </View>
+        )}
+
+        {/* PrepLock badge (customer only) */}
+        {!isDriver && (
+          <View style={[s.prepLockCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <Ionicons name="lock-closed" size={20} color={colors.primary} />
+            <View style={s.prepLockText}>
+              <Text style={[s.prepLockTitle, { color: colors.foreground }]}>
+                Technologie PrepLock™
+              </Text>
+              <Text style={[s.prepLockDesc, { color: colors.mutedForeground }]}>
+                Votre repas commence à être préparé seulement après confirmation du livreur
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Menu items */}
         <View style={[s.menuCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {user.role === "customer" && (
+          {!isDriver && (
             <>
               <MenuItem
                 icon="package"
@@ -164,11 +228,11 @@ export default function AccountScreen() {
               />
             </>
           )}
-          {user.role === "driver" && (
+          {isDriver && (
             <MenuItem
-              icon="bar-chart-2"
-              label="Mes statistiques"
-              sublabel="Vos performances"
+              icon="list"
+              label="Historique des livraisons"
+              sublabel="Vos missions passées"
               onPress={() => router.push("/(tabs)/orders")}
               colors={colors}
             />
@@ -188,7 +252,16 @@ export default function AccountScreen() {
           />
         </View>
 
-        <View style={[s.menuCard, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 12 }]}>
+        <View
+          style={[
+            s.menuCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              marginTop: 12,
+            },
+          ]}
+        >
           <MenuItem
             icon="log-out"
             label="Déconnexion"
@@ -208,7 +281,8 @@ export default function AccountScreen() {
 
 const s = StyleSheet.create({
   flex: { flex: 1 },
-  profileSection: { alignItems: "center", paddingVertical: 28, paddingHorizontal: 20 },
+  section: { marginHorizontal: 16, marginBottom: 12 },
+  profileSection: { alignItems: "center", paddingVertical: 24, paddingHorizontal: 20 },
   avatar: {
     width: 80,
     height: 80,
@@ -222,6 +296,20 @@ const s = StyleSheet.create({
   userEmail: { fontSize: 13, marginBottom: 10 },
   roleBadge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20 },
   roleBadgeText: { fontSize: 13, fontWeight: "700" as const },
+
+  earningsCard: {
+    borderRadius: 20,
+    padding: 20,
+  },
+  earningsTitle: { fontSize: 13, fontWeight: "600" as const, color: "rgba(255,255,255,0.8)", marginBottom: 4 },
+  earningsAmount: { fontSize: 36, fontWeight: "800" as const, color: "#fff", letterSpacing: -1 },
+  earningsSub: { fontSize: 12, color: "rgba(255,255,255,0.65)", marginBottom: 16, marginTop: 2 },
+  earningsRow: { flexDirection: "row", alignItems: "center" },
+  earningsStat: { flex: 1, alignItems: "center" },
+  earningsStatValue: { fontSize: 18, fontWeight: "700" as const, color: "#fff" },
+  earningsStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.7)", marginTop: 2 },
+  earningsDivider: { width: 1, height: 32, marginHorizontal: 4 },
+
   prepLockCard: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -235,6 +323,7 @@ const s = StyleSheet.create({
   prepLockText: { flex: 1 },
   prepLockTitle: { fontSize: 14, fontWeight: "700" as const, marginBottom: 2 },
   prepLockDesc: { fontSize: 12, lineHeight: 18 },
+
   menuCard: { marginHorizontal: 16, borderRadius: 14, borderWidth: 1, overflow: "hidden" as const },
   menuItem: {
     flexDirection: "row",
@@ -247,5 +336,6 @@ const s = StyleSheet.create({
   menuLabel: { flex: 1 },
   menuLabelText: { fontSize: 15, fontWeight: "600" as const },
   menuSublabel: { fontSize: 12, marginTop: 1 },
+  menuRightText: { fontSize: 14, fontWeight: "700" as const },
   version: { textAlign: "center" as const, fontSize: 12, marginTop: 24, marginBottom: 8 },
 });
