@@ -137,7 +137,7 @@ function DriverEarningsCard({ colors }: { colors: any }) {
 export default function AccountScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuth();
+  const { user, isLoading, logout } = useAuth();
 
   const handleLogout = () => {
     Alert.alert("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?", [
@@ -156,7 +156,33 @@ export default function AccountScreen() {
     ]);
   };
 
-  if (!user) return null;
+  if (isLoading) {
+    return (
+      <View style={[s.flex, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={[s.flex, { backgroundColor: colors.background, alignItems: "center", justifyContent: "center", padding: 32 }]}>
+        <Ionicons name="person-circle-outline" size={72} color={colors.mutedForeground} />
+        <Text style={[s.userName, { color: colors.foreground, marginTop: 16, textAlign: "center" }]}>
+          Connectez-vous
+        </Text>
+        <Text style={[s.userEmail, { color: colors.mutedForeground, textAlign: "center", marginBottom: 24 }]}>
+          Accédez à votre compte et vos commandes
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: colors.primary, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 }}
+          onPress={() => router.replace("/" as any)}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 16 }}>Se connecter</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const roleColor = ROLE_COLORS[user.role] ?? colors.primary;
   const isDriver = user.role === "driver";
