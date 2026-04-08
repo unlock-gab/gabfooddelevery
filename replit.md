@@ -160,6 +160,7 @@ draft
 | /dashboard            | RestaurantDashboard  | Also /restaurant |
 | /driver               | DriverDashboard      | Also /livreur |
 | /admin                | AdminDashboard       | 11 sections: Overview, Orders, Dispatch, Confirmation, Restaurants, Drivers, Customers, Zones, Payments, Fraud, Settings |
+| /admin → Orders → click | AdminOrderDetail     | Full-page modal: 12 sections — timeline, dispatch, PrepLock™ confirmation, QR, articles, payment, customer, restaurant, driver, fraud/disputes, internal notes, audit trail |
 
 ## Important: API Client URL Configuration
 

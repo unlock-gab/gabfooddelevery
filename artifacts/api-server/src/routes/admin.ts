@@ -6,7 +6,7 @@ import {
   orderStatusHistoryTable, qrDeliveryTokensTable, promoCodesTable, promoUsageTable,
   disputesTable, dispatchAttemptsTable, notificationsTable,
   deliveryConfirmationsTable, menuCategoriesTable, productsTable,
-  addressesTable,
+  addressesTable, orderItemsTable,
 } from "@workspace/db";
 import { createNotification } from "../lib/notifications";
 import { eq, and, count, sql, sum, avg, desc } from "drizzle-orm";
@@ -535,6 +535,211 @@ router.post("/admin/fraud-flags/:flagId/resolve", authenticate, requireRole("adm
     isResolved: flag.isResolved,
     resolvedAt: flag.resolvedAt?.toISOString() ?? null,
     createdAt: flag.createdAt.toISOString(),
+  });
+});
+
+// ADMIN ENRICHED ORDER DETAIL
+router.get("/admin/orders/:orderId/detail", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const orderId = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
+
+  const [orderRow] = await db.select({
+    order: ordersTable,
+    restaurantName: restaurantsTable.name,
+    restaurantPhone: restaurantsTable.phone,
+    restaurantAddress: restaurantsTable.address,
+    restaurantIsOpen: restaurantsTable.isOpen,
+    restaurantEstimatedPrepTime: restaurantsTable.estimatedPrepTime,
+    restaurantId: restaurantsTable.id,
+    driverName: usersTable.name,
+  })
+    .from(ordersTable)
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .leftJoin(usersTable, eq(ordersTable.driverId, usersTable.id))
+    .where(eq(ordersTable.id, orderId));
+
+  if (!orderRow) { res.status(404).json({ error: "Order not found" }); return; }
+
+  // Customer info
+  const [customerUser] = await db.select().from(usersTable).where(eq(usersTable.id, orderRow.order.customerId));
+  const [customerProfile] = await db.select().from(customerProfilesTable).where(eq(customerProfilesTable.userId, orderRow.order.customerId));
+
+  // Driver profile
+  let driverProfile = null;
+  let driverUser = null;
+  if (orderRow.order.driverId) {
+    [driverUser] = await db.select().from(usersTable).where(eq(usersTable.id, orderRow.order.driverId));
+    [driverProfile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, orderRow.order.driverId));
+  }
+
+  // Order items
+  const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, orderId));
+
+  // Status history
+  const statusHistory = await db.select().from(orderStatusHistoryTable)
+    .where(eq(orderStatusHistoryTable.orderId, orderId))
+    .orderBy(orderStatusHistoryTable.createdAt);
+
+  // Dispatch attempts with driver names
+  const dispatchRows = await db.select({
+    attempt: dispatchAttemptsTable,
+    driverName: usersTable.name,
+  })
+    .from(dispatchAttemptsTable)
+    .leftJoin(usersTable, eq(dispatchAttemptsTable.driverId, usersTable.id))
+    .where(eq(dispatchAttemptsTable.orderId, orderId))
+    .orderBy(dispatchAttemptsTable.attemptedAt);
+
+  // Delivery confirmations
+  const confirmations = await db.select({
+    confirmation: deliveryConfirmationsTable,
+    driverName: usersTable.name,
+  })
+    .from(deliveryConfirmationsTable)
+    .leftJoin(usersTable, eq(deliveryConfirmationsTable.driverId, usersTable.id))
+    .where(eq(deliveryConfirmationsTable.orderId, orderId));
+
+  // QR token
+  const [qr] = await db.select().from(qrDeliveryTokensTable).where(eq(qrDeliveryTokensTable.orderId, orderId));
+
+  // Fraud flags on customer and on this order
+  const fraudFlags = await db.select({
+    flag: fraudFlagsTable,
+    resolverName: usersTable.name,
+  })
+    .from(fraudFlagsTable)
+    .leftJoin(usersTable, eq(fraudFlagsTable.resolvedBy, usersTable.id))
+    .where(sql`${fraudFlagsTable.userId} = ${orderRow.order.customerId} OR ${fraudFlagsTable.relatedOrderId} = ${orderId}`);
+
+  // Disputes on this order
+  const disputes = await db.select().from(disputesTable).where(eq(disputesTable.orderId, orderId));
+
+  // Payment
+  const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.orderId, orderId));
+
+  // Customer order count
+  const [{ orderCount }] = await db.select({ orderCount: count() }).from(ordersTable)
+    .where(eq(ordersTable.customerId, orderRow.order.customerId));
+
+  // Restaurant avg rating
+  let restaurantAvgRating = 0;
+  if (orderRow.restaurantId) {
+    const [ratingRow] = await db.select({ avgRating: avg(ratingsTable.rating) })
+      .from(ratingsTable)
+      .where(and(eq(ratingsTable.targetType, "restaurant"), eq(ratingsTable.targetId, orderRow.restaurantId)));
+    restaurantAvgRating = Number(ratingRow?.avgRating ?? 0);
+  }
+
+  res.json({
+    id: orderRow.order.id,
+    orderNumber: orderRow.order.orderNumber,
+    status: orderRow.order.status,
+    paymentStatus: orderRow.order.paymentStatus,
+    paymentMethod: orderRow.order.paymentMethod,
+    subtotal: Number(orderRow.order.subtotal),
+    deliveryFee: Number(orderRow.order.deliveryFee),
+    total: Number(orderRow.order.total),
+    discount: Number(orderRow.order.discount ?? 0),
+    deliveryAddress: orderRow.order.deliveryAddress,
+    deliveryPhone: orderRow.order.deliveryPhone,
+    deliveryLandmark: orderRow.order.deliveryLandmark,
+    deliveryFloor: orderRow.order.deliveryFloor,
+    deliveryInstructions: orderRow.order.deliveryInstructions,
+    specialInstructions: orderRow.order.specialInstructions,
+    cancellationReason: orderRow.order.cancellationReason,
+    createdAt: orderRow.order.createdAt.toISOString(),
+    updatedAt: orderRow.order.updatedAt.toISOString(),
+    customer: {
+      id: customerUser?.id,
+      name: customerUser?.name ?? "Inconnu",
+      email: customerUser?.email ?? "",
+      phone: customerUser?.phone ?? null,
+      orderCount: Number(orderCount),
+      riskScore: customerProfile?.riskScore ?? "low",
+      cancellationCount: customerProfile?.cancellationCount ?? 0,
+      unreachableCount: customerProfile?.unreachableCount ?? 0,
+    },
+    restaurant: {
+      id: orderRow.order.restaurantId,
+      name: orderRow.restaurantName ?? "Inconnu",
+      phone: orderRow.restaurantPhone ?? null,
+      address: orderRow.restaurantAddress ?? null,
+      isOpen: orderRow.restaurantIsOpen ?? false,
+      avgRating: restaurantAvgRating,
+      estimatedPrepTime: orderRow.restaurantEstimatedPrepTime ?? null,
+    },
+    driver: orderRow.order.driverId ? {
+      id: orderRow.order.driverId,
+      name: driverUser?.name ?? orderRow.driverName ?? "Inconnu",
+      phone: driverUser?.phone ?? null,
+      acceptanceRate: Number(driverProfile?.acceptanceRate ?? 0),
+      totalDeliveries: driverProfile?.totalDeliveries ?? 0,
+      avgRating: Number(driverProfile?.avgRating ?? 0),
+      isOnline: driverProfile?.isOnline ?? false,
+      status: driverProfile?.status ?? "pending",
+    } : null,
+    items: items.map(i => ({
+      id: i.id,
+      productName: i.productName,
+      quantity: i.quantity,
+      price: Number(i.price),
+      notes: i.notes,
+    })),
+    statusHistory: statusHistory.map(h => ({
+      id: h.id,
+      status: h.status,
+      note: h.note,
+      createdBy: h.createdBy,
+      createdAt: h.createdAt.toISOString(),
+    })),
+    dispatchAttempts: dispatchRows.map(r => ({
+      id: r.attempt.id,
+      driverName: r.driverName ?? "Inconnu",
+      driverId: r.attempt.driverId,
+      result: r.attempt.result,
+      attemptedAt: r.attempt.attemptedAt.toISOString(),
+      respondedAt: r.attempt.respondedAt?.toISOString() ?? null,
+      expiresAt: r.attempt.expiresAt?.toISOString() ?? null,
+    })),
+    confirmations: confirmations.map(c => ({
+      id: c.confirmation.id,
+      driverName: c.driverName ?? "Inconnu",
+      result: c.confirmation.result,
+      createdAt: c.confirmation.createdAt.toISOString(),
+    })),
+    qr: qr ? {
+      token: qr.token,
+      isVerified: qr.isVerified,
+      verifiedAt: qr.verifiedAt?.toISOString() ?? null,
+      expiresAt: qr.expiresAt?.toISOString() ?? null,
+      invalidAttempts: qr.invalidAttempts ?? 0,
+    } : null,
+    fraudFlags: fraudFlags.map(f => ({
+      id: f.flag.id,
+      type: f.flag.type,
+      severity: f.flag.severity,
+      description: f.flag.description,
+      isResolved: f.flag.isResolved,
+      resolvedBy: f.resolverName ?? null,
+      resolvedAt: f.flag.resolvedAt?.toISOString() ?? null,
+      createdAt: f.flag.createdAt.toISOString(),
+      relatedOrderId: f.flag.relatedOrderId,
+    })),
+    disputes: disputes.map(d => ({
+      id: d.id,
+      type: d.type,
+      status: d.status,
+      description: d.description,
+      resolution: d.resolution,
+      createdAt: d.createdAt.toISOString(),
+    })),
+    payment: payment ? {
+      id: payment.id,
+      amount: Number(payment.amount),
+      status: payment.status,
+      method: payment.method,
+      transactionId: payment.transactionId,
+      createdAt: payment.createdAt.toISOString(),
+    } : null,
   });
 });
 

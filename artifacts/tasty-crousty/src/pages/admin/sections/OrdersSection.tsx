@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { formatDA } from "@/lib/format";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
-import { Search, Eye, RefreshCw, XCircle, Radio, Clock, ChevronLeft, ChevronRight, MapPin, CreditCard, Truck, CheckCircle2 } from "lucide-react";
-import { useListOrders, useGetOrder, useCancelOrder } from "@workspace/api-client-react";
+import { Search, Eye, RefreshCw, XCircle, Radio, ChevronLeft, ChevronRight, Truck } from "lucide-react";
+import { useListOrders, useCancelOrder } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { AdminOrderDetail } from "./AdminOrderDetail";
 
 function useRedispatchOrder() {
   return useMutation({
@@ -24,21 +23,6 @@ function useRedispatchOrder() {
   });
 }
 
-function useOverrideDelivery() {
-  return useMutation({
-    mutationFn: async ({ orderId, reason }: { orderId: number; reason?: string }) => {
-      const token = localStorage.getItem("tc_token");
-      const res = await fetch(`/api/admin/orders/${orderId}/override-delivery`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reason }),
-      });
-      if (!res.ok) throw new Error("Override failed");
-      return res.json();
-    },
-  });
-}
-
 const STATUS_LABELS: Record<string, string> = {
   pending_dispatch: "En attente", placed: "Placée",
   dispatching_driver: "Dispatch en cours", driver_assigned: "Livreur assigné",
@@ -46,8 +30,9 @@ const STATUS_LABELS: Record<string, string> = {
   confirmation_failed: "Confirmation échouée", confirmed_for_preparation: "Confirmée PrepLock™",
   preparing: "En préparation", ready_for_pickup: "Prête (pickup)",
   driver_at_restaurant: "Livreur au resto", picked_up: "Récupérée",
-  on_the_way: "En route", arriving: "À proximité", delivered: "Livrée",
-  cancelled: "Annulée", failed: "Échouée", pending_payment: "Attente paiement",
+  on_the_way: "En route", arriving_soon: "À proximité", arriving: "À proximité",
+  delivered: "Livrée", cancelled: "Annulée", failed: "Échouée",
+  pending_payment: "Attente paiement",
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -64,6 +49,7 @@ const STATUS_COLORS: Record<string, string> = {
   driver_at_restaurant: "bg-indigo-100 text-indigo-800",
   picked_up: "bg-cyan-100 text-cyan-800",
   on_the_way: "bg-cyan-100 text-cyan-800",
+  arriving_soon: "bg-teal-100 text-teal-800",
   arriving: "bg-teal-100 text-teal-800",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-slate-100 text-slate-500",
@@ -108,14 +94,8 @@ export function OrdersSection() {
     query: { refetchInterval: 15000 },
   });
 
-  const { data: orderDetail } = useGetOrder(
-    { orderId: selectedOrderId! },
-    { query: { enabled: selectedOrderId !== null } }
-  );
-
   const cancelOrder = useCancelOrder();
   const redispatch = useRedispatchOrder();
-  const overrideDelivery = useOverrideDelivery();
 
   const orders = isActive
     ? (data?.orders ?? []).filter(o => ACTIVE_STATUSES.includes(o.status))
@@ -205,7 +185,11 @@ export function OrdersSection() {
                 <tr><td colSpan={7} className="text-center py-10 text-slate-400 text-sm">Aucune commande</td></tr>
               )}
               {filtered.map(order => (
-                <tr key={order.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                <tr
+                  key={order.id}
+                  className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors cursor-pointer"
+                  onClick={() => setSelectedOrderId(order.id)}
+                >
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs font-semibold text-slate-700">{order.orderNumber}</span>
                   </td>
@@ -233,7 +217,7 @@ export function OrdersSection() {
                   <td className="px-4 py-3 text-xs text-slate-400">
                     {new Date(order.createdAt).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1.5">
                       <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setSelectedOrderId(order.id)}>
                         <Eye className="w-3 h-3" />
@@ -272,131 +256,11 @@ export function OrdersSection() {
         </div>
       )}
 
-      {/* Order detail drawer */}
-      <Sheet open={selectedOrderId !== null} onOpenChange={open => !open && setSelectedOrderId(null)}>
-        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="font-mono text-base">{orderDetail?.orderNumber}</SheetTitle>
-          </SheetHeader>
-          {orderDetail && (
-            <div className="mt-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[orderDetail.status] ?? "bg-slate-100"}`}>
-                  {STATUS_LABELS[orderDetail.status] ?? orderDetail.status}
-                </span>
-                <span className="text-xs text-slate-400">{new Date(orderDetail.createdAt).toLocaleString("fr-FR")}</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Restaurant</p>
-                  <p className="text-sm font-medium text-slate-800">{orderDetail.restaurantName}</p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs font-semibold text-slate-500 mb-1">Livreur</p>
-                  <p className="text-sm font-medium text-slate-800">{orderDetail.driverName ?? "Non assigné"}</p>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">{orderDetail.deliveryAddress}</p>
-                    {orderDetail.deliveryLandmark && <p className="text-xs text-slate-500 mt-0.5">Repère: {orderDetail.deliveryLandmark}</p>}
-                    {orderDetail.deliveryFloor && <p className="text-xs text-slate-500">Étage: {orderDetail.deliveryFloor}</p>}
-                    {orderDetail.deliveryInstructions && <p className="text-xs text-slate-500">Instructions: {orderDetail.deliveryInstructions}</p>}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-semibold text-slate-500 mb-2">Articles commandés</p>
-                <div className="space-y-1.5">
-                  {orderDetail.items?.map(item => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-slate-700">{item.quantity}× {item.productName}</span>
-                      <span className="font-medium text-slate-800">{formatDA(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-                <Separator className="my-2" />
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Sous-total</span>
-                  <span>{formatDA(orderDetail.subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-500">Livraison</span>
-                  <span>{formatDA(orderDetail.deliveryFee)}</span>
-                </div>
-                <div className="flex justify-between text-sm font-bold mt-1">
-                  <span>Total</span>
-                  <span className="text-primary">{formatDA(orderDetail.total)}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm">
-                <CreditCard className="w-4 h-4 text-slate-400" />
-                <span className="text-slate-600">
-                  {orderDetail.paymentMethod === "cash_on_delivery" ? "Espèces à la livraison" : "Paiement en ligne"}
-                </span>
-                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${orderDetail.paymentStatus === "paid" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                  {orderDetail.paymentStatus === "paid" ? "Payé" : "En attente"}
-                </span>
-              </div>
-
-              {orderDetail.statusHistory && orderDetail.statusHistory.length > 0 && (
-                <div>
-                  <p className="text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wide">Historique des statuts</p>
-                  <div className="space-y-2">
-                    {[...orderDetail.statusHistory].reverse().map((h, i) => (
-                      <div key={h.id} className="flex gap-3 items-start">
-                        <div className="flex flex-col items-center mt-1">
-                          <div className={`w-2 h-2 rounded-full ${i === 0 ? "bg-primary" : "bg-slate-300"}`} />
-                          {i < orderDetail.statusHistory!.length - 1 && <div className="w-px h-4 bg-slate-200" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-slate-700">{STATUS_LABELS[h.status] ?? h.status}</p>
-                          <p className="text-xs text-slate-400">
-                            {new Date(h.createdAt).toLocaleString("fr-FR")}
-                            {h.note && ` · ${h.note}`}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Separator />
-              <div className="flex gap-2 flex-wrap">
-                {!["delivered", "cancelled", "failed"].includes(orderDetail.status) && (
-                  <Button size="sm" variant="destructive" className="text-xs h-7"
-                    onClick={() => { handleCancel(orderDetail.id); setSelectedOrderId(null); }}>
-                    <XCircle className="w-3 h-3 mr-1" /> Annuler
-                  </Button>
-                )}
-                {["dispatching_driver", "pending_dispatch"].includes(orderDetail.status) && (
-                  <Button size="sm" className="text-xs h-7 bg-blue-600 hover:bg-blue-700"
-                    onClick={() => { handleRedispatch(orderDetail.id); setSelectedOrderId(null); }}>
-                    <Radio className="w-3 h-3 mr-1" /> Redispatching
-                  </Button>
-                )}
-                {!["delivered", "cancelled", "failed"].includes(orderDetail.status) && (
-                  <Button size="sm" className="text-xs h-7 bg-green-600 hover:bg-green-700"
-                    disabled={overrideDelivery.isPending}
-                    onClick={() => overrideDelivery.mutate(
-                      { orderId: orderDetail.id, reason: "Livraison override par admin" },
-                      { onSuccess: () => { toast({ title: "Livraison confirmée" }); setSelectedOrderId(null); refetch(); qc.invalidateQueries(); } }
-                    )}>
-                    <CheckCircle2 className="w-3 h-3 mr-1" /> Marquer livrée
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
+      {/* Full-page order detail modal */}
+      <AdminOrderDetail
+        orderId={selectedOrderId}
+        onClose={() => setSelectedOrderId(null)}
+      />
     </div>
   );
 }

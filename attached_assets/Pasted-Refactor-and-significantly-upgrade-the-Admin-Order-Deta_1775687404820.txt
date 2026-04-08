@@ -1,0 +1,349 @@
+Refactor and significantly upgrade the **Admin Order Detail Page** in the existing Tasty Crousty project.
+
+Do not rebuild the project from scratch.
+Keep the current architecture and business logic.
+Focus specifically on making the admin order detail page a premium operational control page.
+
+==================================================
+GOAL
+==================================================
+
+The admin order detail page must become one of the most important pages in the platform.
+
+It should allow the admin to understand the full life of an order from start to finish:
+- who created it
+- what was ordered
+- which restaurant received it
+- how dispatch happened
+- which drivers were notified
+- who accepted or rejected
+- how confirmation happened
+- when preparation started
+- how delivery progressed
+- whether QR delivery was verified
+- whether payment was completed
+- whether there were fraud flags, support notes, or disputes
+
+This page must feel like a real operations center for one order.
+
+==================================================
+MAIN SECTIONS TO BUILD
+==================================================
+
+Build the admin order detail page with these strong sections:
+
+1. Sticky top summary header
+2. Full order timeline
+3. Customer block
+4. Restaurant block
+5. Driver / dispatch block
+6. Confirmation block
+7. Payment block
+8. QR delivery block
+9. Fraud / risk / dispute block
+10. Internal notes and admin actions
+11. Action history / audit trail
+
+==================================================
+1. STICKY TOP SUMMARY HEADER
+==================================================
+
+At the top of the page, create a strong summary area with:
+- order ID
+- current order status
+- payment status
+- QR delivery status
+- order total in DA
+- customer name
+- restaurant name
+- assigned driver
+- city / zone
+- order created time
+- urgent alert badge if the order is blocked or problematic
+
+Add quick admin action buttons such as:
+- Retry dispatch
+- Reassign driver
+- Mark for review
+- Cancel order
+- Add internal note
+- Open linked dispute
+
+This top section should stay visible or partially sticky for operational usability.
+
+==================================================
+2. FULL ORDER TIMELINE
+==================================================
+
+Build a rich visual timeline of the entire order lifecycle.
+
+Show all major milestones with timestamps, such as:
+- order created
+- pending dispatch
+- driver notified
+- driver assigned
+- awaiting customer confirmation
+- confirmation success / needs correction / failed confirmation
+- confirmed for preparation
+- preparation started
+- ready for pickup
+- picked up
+- on the way
+- arriving soon
+- delivered
+- cancelled / refunded if applicable
+
+Requirements:
+- clear icons
+- clear timestamps
+- actor labels where applicable
+- strong status styling
+- visually easy to scan
+
+==================================================
+3. CUSTOMER BLOCK
+==================================================
+
+Add a customer information section showing:
+- customer full name
+- phone
+- saved address label if applicable
+- full delivery address
+- wilaya / zone
+- landmark / building / floor / notes
+- customer order count
+- cancellation rate
+- unreachable count
+- customer risk level
+- fraud flags if any
+
+Add quick actions:
+- view customer profile
+- view customer order history
+- view risk history
+
+==================================================
+4. RESTAURANT BLOCK
+==================================================
+
+Add a restaurant section showing:
+- restaurant name
+- current operational status
+- phone
+- zone
+- average preparation time
+- current rating
+- linked order stats
+- whether preparation has started
+- whether there was any delay
+
+Add quick actions:
+- view restaurant profile
+- view restaurant performance
+- contact / review placeholder structure
+
+==================================================
+5. DRIVER / DISPATCH BLOCK
+==================================================
+
+This is one of the most important sections.
+
+Show:
+- assigned driver name
+- phone
+- status
+- current availability
+- acceptance rate
+- average delivery time
+- current zone
+- driver rating
+
+Also show full dispatch history:
+- which drivers were notified
+- sent time
+- expiry time
+- response result:
+  - accepted
+  - rejected
+  - timeout
+- dispatch round number
+- distance / priority info if available
+
+Add admin actions:
+- retry dispatch
+- manually assign another driver
+- review failed dispatch attempts
+
+This section must make dispatch behavior easy to understand.
+
+==================================================
+6. CONFIRMATION BLOCK
+==================================================
+
+Add a dedicated block for the customer confirmation phase.
+
+Show:
+- confirmation status
+- who performed confirmation
+- when
+- result:
+  - confirmed
+  - needs correction
+  - failed / unreachable
+- correction details if any
+- linked confirmation notes
+
+If there was a failed confirmation:
+- make it visually visible and urgent
+
+If correction was needed:
+- show what was changed and when
+
+==================================================
+7. PAYMENT BLOCK
+==================================================
+
+Show a clear payment section:
+- payment method
+- payment status
+- subtotal
+- delivery fee
+- promo discount if any
+- total
+- commission breakdown
+- refund state if applicable
+
+Support:
+- cash on delivery
+- online payment placeholder
+- refunded / failed payment states
+
+==================================================
+8. QR DELIVERY BLOCK
+==================================================
+
+Show:
+- whether a QR token exists
+- QR verification status
+- verified at timestamp
+- verified by which driver
+- invalid scan attempts if any
+- expired token state if applicable
+
+If QR was not verified:
+- show this clearly
+
+==================================================
+9. FRAUD / RISK / DISPUTE BLOCK
+==================================================
+
+Create a strong operational risk section.
+
+Show:
+- fraud flags on customer / driver / order
+- customer risk score
+- suspicious patterns
+- linked disputes
+- support tickets linked to this order
+- severity level
+- status of dispute/support case
+
+If there are no flags:
+- still show a clean “No current operational risk detected” state
+
+==================================================
+10. INTERNAL NOTES + ADMIN ACTIONS
+==================================================
+
+Allow an internal admin notes section.
+
+Admin should be able to:
+- view internal notes
+- add note
+- see note author
+- see note timestamp
+
+Also add strong operational action buttons:
+- retry dispatch
+- reassign driver
+- change status under allowed admin override logic
+- open dispute
+- add fraud flag
+- request manual review
+
+==================================================
+11. ACTION HISTORY / AUDIT TRAIL
+==================================================
+
+Add a complete audit trail section.
+
+Track:
+- who changed the status
+- who assigned the driver
+- who added a note
+- who flagged fraud
+- who opened a dispute
+- payment changes
+- QR verification
+- any override actions
+
+Each row should include:
+- actor
+- actor role
+- action type
+- timestamp
+- optional note / metadata
+
+==================================================
+LAYOUT / DESIGN DIRECTION
+==================================================
+
+The page must feel:
+- premium
+- operational
+- detailed
+- easy to scan
+- not cluttered
+- not generic
+
+Recommended layout idea:
+- top sticky summary
+- main content split into 2 columns on desktop
+- high-priority operational blocks first
+- timeline prominent
+- cards with strong hierarchy
+- badges with clear colors
+- action buttons easy to find
+- responsive on laptop and tablet
+
+==================================================
+FRENCH + ARABIC
+==================================================
+
+French is the default language.
+Use polished professional French labels.
+Keep Arabic support structure for this page as well.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not make this page a simple record view.
+Do not show only static fields.
+
+This page must help an admin operate, investigate, monitor, and resolve order issues quickly.
+
+It should feel like the control page for one live order in a serious delivery platform.
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+1. redesign the admin order detail page
+2. add all major operational sections
+3. improve timeline and dispatch visibility
+4. improve confirmation/payment/QR visibility
+5. add fraud/dispute/internal notes areas
+6. add audit trail
+7. keep it modular and scalable
+8. keep the page premium and highly useful

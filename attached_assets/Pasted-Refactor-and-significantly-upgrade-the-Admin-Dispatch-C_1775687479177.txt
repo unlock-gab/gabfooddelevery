@@ -1,0 +1,305 @@
+Refactor and significantly upgrade the **Admin Dispatch Center** in the existing Tasty Crousty project.
+
+Do not rebuild the entire project.
+Keep the current architecture, business logic, and design language.
+Focus specifically on building a premium and operationally powerful dispatch control center.
+
+==================================================
+GOAL
+==================================================
+
+The Dispatch Center must become the main control page for driver assignment operations.
+
+It should allow admin/operators to:
+- monitor all orders waiting for driver assignment
+- understand current dispatch rounds
+- see which drivers were notified
+- see accept / reject / timeout responses
+- detect blocked orders
+- retry dispatch
+- manually assign drivers
+- understand dispatch efficiency by zone and time
+- intervene quickly when automatic dispatch fails
+
+This page must feel like a real live operations screen, not just a simple list.
+
+==================================================
+MAIN SECTIONS TO BUILD
+==================================================
+
+Build the Dispatch Center with these strong sections:
+
+1. Top operational summary bar
+2. Orders waiting for dispatch
+3. Active dispatch rounds
+4. Driver response monitoring
+5. Failed / timed-out dispatches
+6. Manual assignment tools
+7. Dispatch analytics
+8. Zone / wilaya dispatch pressure view
+9. Activity feed
+10. Filters and quick actions
+
+==================================================
+1. TOP OPERATIONAL SUMMARY BAR
+==================================================
+
+At the top, show strong live KPI cards such as:
+- orders waiting for dispatch
+- dispatches in progress
+- average dispatch time
+- timeout rate
+- no-driver-found incidents
+- successful assignment rate
+- online drivers
+- active zones
+
+Make these cards visually clear and useful.
+
+==================================================
+2. ORDERS WAITING FOR DISPATCH
+==================================================
+
+Build a main section showing all orders that are currently waiting for driver assignment.
+
+For each order, show:
+- order ID
+- restaurant name
+- customer zone
+- restaurant zone
+- wilaya
+- created time
+- waiting duration
+- current dispatch round
+- number of notified drivers
+- best candidate count
+- urgency level
+- status badge
+
+Add quick actions:
+- view order
+- retry dispatch
+- open manual assign
+- mark for review
+- cancel if needed
+
+This should be one of the most important sections.
+
+==================================================
+3. ACTIVE DISPATCH ROUNDS
+==================================================
+
+Create a strong view of active dispatch rounds.
+
+For each dispatch round, show:
+- order ID
+- round number
+- started at
+- expires at
+- countdown / remaining time
+- notified drivers count
+- accepted / rejected / timeout counts
+- current assignment state
+
+Make it easy to see which round is still alive and which one is failing.
+
+==================================================
+4. DRIVER RESPONSE MONITORING
+==================================================
+
+Add a section showing driver responses in real time or near-real-time.
+
+For each response, show:
+- driver name
+- current zone
+- wilaya
+- distance to restaurant if available
+- response type:
+  - accepted
+  - rejected
+  - timeout
+- sent time
+- responded time
+- driver rating
+- driver acceptance rate
+
+Make this visually easy to scan, possibly with a table or grouped response cards.
+
+==================================================
+5. FAILED / TIMED-OUT DISPATCHES
+==================================================
+
+Create a special high-visibility section for problematic dispatches.
+
+Show orders where:
+- no driver accepted
+- multiple timeouts occurred
+- dispatch exceeded threshold
+- no valid candidates were found
+- order is blocked due to dispatch failure
+
+Add actions:
+- retry with expanded radius
+- manually assign driver
+- escalate to review
+- cancel order if necessary
+
+This section must feel urgent and operational.
+
+==================================================
+6. MANUAL ASSIGNMENT TOOLS
+==================================================
+
+Build a manual assignment interface for admins.
+
+Admin should be able to:
+- search available drivers
+- filter by wilaya
+- filter by current zone
+- see availability
+- see online status
+- see current workload
+- see acceptance rate
+- see distance from restaurant if available
+- assign a selected driver manually
+
+This can be a modal, drawer, or side panel.
+
+==================================================
+7. DISPATCH ANALYTICS
+==================================================
+
+Add useful dispatch performance widgets and charts such as:
+- average dispatch time
+- successful assignment percentage
+- timeout percentage
+- rejected percentage
+- dispatch attempts per order
+- busiest dispatch hours
+- most problematic zones
+- driver response speed
+- assignment success by zone
+
+These can start simple but should be structured professionally.
+
+==================================================
+8. ZONE / WILAYA DISPATCH PRESSURE VIEW
+==================================================
+
+Since the platform is geographically driven, add a dispatch pressure block.
+
+Show:
+- active demand by zone
+- zones with low driver coverage
+- zones with high timeout rate
+- zones with slow assignment
+- number of online drivers per zone
+- number of waiting orders per zone
+
+If map integration is not ready, use ranked cards or tables.
+
+==================================================
+9. ACTIVITY FEED
+==================================================
+
+Add a live operational feed such as:
+- driver assigned to order #...
+- dispatch retried for order #...
+- no driver found for zone ...
+- manual assignment completed
+- dispatch timeout occurred
+- driver rejected mission
+- driver accepted mission
+
+This helps the admin understand what is happening right now.
+
+==================================================
+10. FILTERS AND QUICK ACTIONS
+==================================================
+
+Add strong filters:
+- by wilaya
+- by zone
+- by dispatch status
+- by urgency
+- by waiting duration
+- by restaurant
+- by driver availability
+- by round number
+
+Add quick actions:
+- retry selected dispatch
+- open manual assign
+- view blocked orders
+- view timed-out only
+- refresh live data
+
+==================================================
+DESIGN / UX DIRECTION
+==================================================
+
+The Dispatch Center must feel:
+- premium
+- live
+- urgent where needed
+- operationally dense
+- easy to scan
+- smart and serious
+
+Use:
+- clear badges
+- countdown indicators
+- urgency colors
+- grouped cards
+- rich tables
+- compact but readable layout
+- strong hierarchy
+- subtle shadows and premium dashboard styling
+
+The page should feel like a control tower for dispatch operations.
+
+==================================================
+FRENCH + ARABIC
+==================================================
+
+French is the default language.
+Use polished and realistic French labels such as:
+- En attente dispatch
+- Round actif
+- Aucun livreur trouvé
+- Délai dépassé
+- Réaffectation manuelle
+- Réponse livreur
+- Temps restant
+- Zones sous-couvertes
+
+Keep Arabic support structure for later UI switching.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not make this page a simple list of orders.
+Do not hide dispatch complexity.
+
+This page must expose:
+- automatic dispatch behavior
+- round logic
+- driver response patterns
+- intervention tools
+- geographic pressure insights
+
+It must feel like a serious operational command center.
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+1. redesign the admin dispatch center
+2. add waiting orders and active rounds sections
+3. add driver response monitoring
+4. add failed/timed-out dispatch visibility
+5. add manual assignment tools
+6. add dispatch analytics and zone pressure insights
+7. add filters and quick actions
+8. keep the page modular, premium, and highly operational
