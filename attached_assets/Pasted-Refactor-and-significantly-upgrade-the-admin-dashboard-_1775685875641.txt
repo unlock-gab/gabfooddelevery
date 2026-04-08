@@ -1,0 +1,163 @@
+Refactor and significantly upgrade the admin dashboard in the existing Tasty Crousty project.
+
+Do not rebuild the project from scratch.
+Keep the current architecture and business logic.
+Transform the admin area into a true premium operations center for a smart delivery platform.
+
+==================================================
+GOAL
+==================================================
+
+The current admin dashboard is clean but still too basic and not operationally rich enough.
+It needs to feel more like a real logistics / delivery control center.
+
+Improve it by adding:
+- stronger operational visibility
+- critical alerts
+- richer KPIs
+- dispatch monitoring
+- confirmation monitoring
+- critical orders management
+- activity feed
+- customer risk monitoring
+- driver performance monitoring
+- restaurant reliability monitoring
+- stronger finance visibility
+- dispute readiness
+
+==================================================
+SECTIONS TO ADD / IMPROVE
+==================================================
+
+1. Live operations top bar
+- active orders
+- drivers online
+- restaurants online/paused
+- confirmations waiting
+- dispatches waiting
+- critical alerts count
+- last sync info
+
+2. Smart alerts panel
+- blocked orders
+- no driver found
+- confirmation timeout
+- restaurant delay
+- suspicious customer
+- QR delivery issue
+- dispute opened
+
+3. Dispatch center block
+- orders waiting for driver
+- dispatch rounds
+- driver responses
+- timeout attempts
+- manual assignment action
+
+4. Confirmation center block
+- awaiting confirmation
+- needs correction
+- failed confirmation
+- recently confirmed
+- quick review actions
+
+5. Critical orders table
+- orders that need urgent admin attention
+- filters by urgency/status/zone
+- quick actions
+
+6. Rich KPI cards
+- revenue today
+- commissions today
+- average dispatch time
+- average confirmation time
+- average preparation time
+- average delivery time
+- driver acceptance rate
+- cancellation rate
+- failed QR count
+
+7. Activity feed
+- recent operational events
+- approvals
+- assignments
+- cancellations
+- disputes
+- delivery completions
+
+8. Customer risk panel
+- high-risk customers
+- repeated cancellations
+- unreachable customers
+- fraud indicators
+
+9. Driver performance panel
+- best drivers
+- poor acceptance rate
+- high timeout rate
+- failed confirmations
+
+10. Restaurant reliability panel
+- average prep time
+- cancellation contribution
+- delays
+- ratings
+- out-of-stock frequency
+
+11. Finance improvement
+- pending commissions
+- settled commissions
+- driver payout placeholders
+- refund stats
+- COD vs online breakdown
+
+12. Better charts
+- orders over time
+- revenue over time
+- cancellation trend
+- order status distribution
+- zone activity trend
+
+==================================================
+DESIGN DIRECTION
+==================================================
+
+Make the admin dashboard feel:
+- premium
+- serious
+- data-rich
+- easy to scan
+- modern
+- operationally powerful
+
+Improve:
+- hierarchy
+- spacing
+- dashboard density
+- charts
+- tables
+- alert styling
+- status chips
+- section rhythm
+- empty states
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not make it look like a generic admin template.
+This must feel like a real operational control center for a smart delivery platform.
+
+Focus on practical admin usefulness, not just visual cards.
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+1. improve the admin overview page
+2. add operational sections
+3. improve analytics and alerts
+4. improve dispatch/confirmation visibility
+5. improve admin usefulness and density
+6. keep French default and Arabic support
+7. keep the UI premium and client-ready

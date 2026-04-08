@@ -117,25 +117,27 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
      "preparing", "ready_for_pickup", "picked_up", "on_the_way", "arriving_soon"].includes(o.status)
   );
 
+  // Helper: play notification sound
+  const playNotifSound = async () => {
+    try {
+      await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      const { sound } = await Audio.Sound.createAsync(
+        require("../../assets/sounds/notification.wav"),
+        { shouldPlay: true, volume: 1.0 }
+      );
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if ((status as any).didJustFinish) sound.unloadAsync();
+      });
+    } catch (_) {}
+  };
+
   // Play notification sound when a new mission arrives
   const prevMissionCount = useRef<number>(-1);
   useEffect(() => {
     const count = (availableMissions as any[]).length;
     if (prevMissionCount.current >= 0 && count > prevMissionCount.current && isOnline) {
-      // Trigger haptic + play sound
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      (async () => {
-        try {
-          await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-          const { sound } = await Audio.Sound.createAsync(
-            require("../../assets/sounds/notification.wav"),
-            { shouldPlay: true, volume: 1.0 }
-          );
-          sound.setOnPlaybackStatusUpdate((status) => {
-            if ((status as any).didJustFinish) sound.unloadAsync();
-          });
-        } catch (_) {}
-      })();
+      playNotifSound();
     }
     prevMissionCount.current = count;
   }, [(availableMissions as any[]).length, isOnline]);
@@ -156,6 +158,7 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
         const alert = STATUS_ALERTS[order.status];
         if (alert) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          playNotifSound();
           Alert.alert(alert.title, `${alert.body}\n\nCommande #${order.id}`);
         }
       }
