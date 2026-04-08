@@ -1,5 +1,6 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Audio } from "expo-av";
 import { router } from "expo-router";
 import { Linking } from "react-native";
 import React, { useState, useEffect, useRef } from "react";
@@ -115,6 +116,29 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
     ["driver_assigned", "awaiting_customer_confirmation", "confirmed_for_preparation",
      "preparing", "ready_for_pickup", "picked_up", "on_the_way", "arriving_soon"].includes(o.status)
   );
+
+  // Play notification sound when a new mission arrives
+  const prevMissionCount = useRef<number>(-1);
+  useEffect(() => {
+    const count = (availableMissions as any[]).length;
+    if (prevMissionCount.current >= 0 && count > prevMissionCount.current && isOnline) {
+      // Trigger haptic + play sound
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      (async () => {
+        try {
+          await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+          const { sound } = await Audio.Sound.createAsync(
+            require("../../assets/sounds/notification.wav"),
+            { shouldPlay: true, volume: 1.0 }
+          );
+          sound.setOnPlaybackStatusUpdate((status) => {
+            if ((status as any).didJustFinish) sound.unloadAsync();
+          });
+        } catch (_) {}
+      })();
+    }
+    prevMissionCount.current = count;
+  }, [(availableMissions as any[]).length, isOnline]);
 
   // Track status changes and show in-app notifications
   const prevStatuses = useRef<Record<number, string>>({});
