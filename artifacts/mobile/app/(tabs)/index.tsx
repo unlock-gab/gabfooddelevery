@@ -87,12 +87,16 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
   const qc = useQueryClient();
 
   // Load initial online status from server
-  const { data: driverStats } = useGetDriverStats({ query: { staleTime: 0 } });
+  const { data: driverStats, isError: statsError } = useGetDriverStats({ query: { staleTime: 0 } });
   useEffect(() => {
     if (driverStats && isOnline === null) {
       setIsOnline((driverStats as any).isOnline ?? false);
     }
   }, [driverStats]);
+  // Fallback: if stats API fails, default to offline to unblock the spinner
+  useEffect(() => {
+    if (statsError && isOnline === null) setIsOnline(false);
+  }, [statsError, isOnline]);
 
   // Available missions: orders in dispatch that specifically notified this driver
   const { data: availableMissions = [], isLoading: loadingAvailable, refetch: refetchAvailable } = useGetAvailableMissions({

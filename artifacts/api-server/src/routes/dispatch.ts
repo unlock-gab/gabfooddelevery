@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, dispatchAttemptsTable, driverProfilesTable, usersTable, orderStatusHistoryTable, deliveryConfirmationsTable, customerProfilesTable, restaurantsTable, fraudFlagsTable, notificationsTable } from "@workspace/db";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
 import { createNotification } from "../lib/notifications";
 import { lockDriverAssignment, retryPendingDispatch } from "../lib/dispatch-engine";
