@@ -15,8 +15,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
-import { useGetDriverStats } from "@workspace/api-client-react";
-import { formatDA } from "@/utils/format";
+import { useGetDriverStats, useGetDriverHistory } from "@workspace/api-client-react";
+import { formatDA, formatDate } from "@/utils/format";
 
 const ROLE_LABELS: Record<string, string> = {
   customer: "Client",
@@ -143,6 +143,102 @@ function DriverEarningsCard({ colors }: { colors: any }) {
   );
 }
 
+const COMMISSION = 0.12;
+
+function DriverPaymentHistory({ colors }: { colors: any }) {
+  const { data: history, isLoading, refetch } = useGetDriverHistory(undefined, {
+    query: { staleTime: 0, refetchOnMount: true },
+  });
+  useFocusEffect(useCallback(() => { refetch(); }, []));
+
+  const items = (history as any[]) ?? [];
+  const totalEarned = items.reduce((s: number, o: any) => s + Number(o.deliveryFee ?? 0), 0);
+  const totalCommission = Math.round(totalEarned * COMMISSION);
+  const totalNet = totalEarned - totalCommission;
+
+  return (
+    <View style={[s.payCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {/* Header */}
+      <View style={s.payHeader}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ backgroundColor: "#F59E0B20", borderRadius: 8, padding: 6 }}>
+            <Feather name="dollar-sign" size={16} color="#F59E0B" />
+          </View>
+          <View>
+            <Text style={[s.payTitle, { color: colors.foreground }]}>Historique des paiements</Text>
+            <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>Gains · Commissions TC</Text>
+          </View>
+        </View>
+        <TouchableOpacity onPress={() => refetch()}>
+          <Feather name="refresh-cw" size={15} color={colors.mutedForeground} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Summary row */}
+      {items.length > 0 && (
+        <View style={[s.paySummary, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <View style={s.paySumItem}>
+            <Text style={[s.paySumLabel, { color: colors.mutedForeground }]}>Brut total</Text>
+            <Text style={[s.paySumValue, { color: "#22C55E" }]}>{formatDA(totalEarned)}</Text>
+          </View>
+          <View style={[s.paySumDivider, { backgroundColor: colors.border }]} />
+          <View style={s.paySumItem}>
+            <Text style={[s.paySumLabel, { color: colors.mutedForeground }]}>Comm. TC (12%)</Text>
+            <Text style={[s.paySumValue, { color: "#EF4444" }]}>−{formatDA(totalCommission)}</Text>
+          </View>
+          <View style={[s.paySumDivider, { backgroundColor: colors.border }]} />
+          <View style={s.paySumItem}>
+            <Text style={[s.paySumLabel, { color: colors.mutedForeground }]}>Net reçu</Text>
+            <Text style={[s.paySumValue, { color: colors.primary, fontWeight: "700" }]}>{formatDA(totalNet)}</Text>
+          </View>
+        </View>
+      )}
+
+      {/* List */}
+      {isLoading ? (
+        <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
+      ) : items.length === 0 ? (
+        <View style={{ alignItems: "center", paddingVertical: 24 }}>
+          <Ionicons name="receipt-outline" size={36} color={colors.mutedForeground} />
+          <Text style={{ color: colors.mutedForeground, fontSize: 13, marginTop: 8 }}>Aucun paiement pour l'instant</Text>
+        </View>
+      ) : (
+        <View>
+          {items.slice(0, 15).map((o: any, i: number) => {
+            const fee = Number(o.deliveryFee ?? 0);
+            const comm = Math.round(fee * COMMISSION);
+            const net = fee - comm;
+            return (
+              <View
+                key={o.id ?? i}
+                style={[s.payRow, { borderBottomColor: colors.border, borderBottomWidth: i < items.length - 1 ? 1 : 0 }]}
+              >
+                {/* Left: date + restaurant */}
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>
+                    {o.restaurantName ?? "Restaurant"}
+                  </Text>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+                    {o.createdAt ? formatDate(o.createdAt) : "—"}
+                  </Text>
+                </View>
+                {/* Right: amounts */}
+                <View style={{ alignItems: "flex-end", gap: 2 }}>
+                  <Text style={{ color: "#22C55E", fontSize: 13, fontWeight: "700" }}>+{formatDA(fee)}</Text>
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    <Text style={{ color: "#EF4444", fontSize: 10 }}>−{formatDA(comm)}</Text>
+                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "600" }}>= {formatDA(net)}</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function AccountScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -225,6 +321,13 @@ export default function AccountScreen() {
         {isDriver && (
           <View style={s.section}>
             <DriverEarningsCard colors={colors} />
+          </View>
+        )}
+
+        {/* Driver payment history */}
+        {isDriver && (
+          <View style={s.section}>
+            <DriverPaymentHistory colors={colors} />
           </View>
         )}
 
@@ -373,4 +476,14 @@ const s = StyleSheet.create({
   menuSublabel: { fontSize: 12, marginTop: 1 },
   menuRightText: { fontSize: 14, fontWeight: "700" as const },
   version: { textAlign: "center" as const, fontSize: 12, marginTop: 24, marginBottom: 8 },
+
+  payCard: { borderRadius: 16, borderWidth: 1, overflow: "hidden" as const },
+  payHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, paddingBottom: 12 },
+  payTitle: { fontSize: 14, fontWeight: "700" as const },
+  paySummary: { flexDirection: "row", marginHorizontal: 12, marginBottom: 10, borderRadius: 10, borderWidth: 1, overflow: "hidden" as const },
+  paySumItem: { flex: 1, alignItems: "center", paddingVertical: 10, paddingHorizontal: 6 },
+  paySumLabel: { fontSize: 10, marginBottom: 3 },
+  paySumValue: { fontSize: 13, fontWeight: "700" as const },
+  paySumDivider: { width: 1 },
+  payRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 12, gap: 10 },
 });
