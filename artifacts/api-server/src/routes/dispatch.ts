@@ -415,7 +415,7 @@ router.post("/driver/deliver/:orderId", authenticate, requireRole("driver"), asy
     await db.update(driverProfilesTable)
       .set({
         totalDeliveries: profile.totalDeliveries + 1,
-        earningsTotal: sql`earnings_total + ${earned}`,
+        earningsTotal: String(Number(profile.earningsTotal ?? 0) + earned),
       })
       .where(eq(driverProfilesTable.userId, user.id));
   }
