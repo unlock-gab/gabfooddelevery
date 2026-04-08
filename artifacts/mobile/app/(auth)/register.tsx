@@ -1,6 +1,6 @@
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/AuthContext";
 import { useColors } from "@/hooks/useColors";
 
+const BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+
 export default function RegisterScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -24,8 +26,17 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"customer" | "driver">("customer");
+  const [cityId, setCityId] = useState<number | null>(null);
+  const [cities, setCities] = useState<{ id: number; name: string; isActive: boolean }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch(`${BASE}/api/cities`)
+      .then(r => r.json())
+      .then((data: any[]) => setCities(data.filter(c => c.isActive)))
+      .catch(() => {});
+  }, []);
 
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
@@ -36,17 +47,18 @@ export default function RegisterScreen() {
       setError("Le mot de passe doit contenir au moins 6 caractères.");
       return;
     }
+    if (!cityId) {
+      setError("Veuillez sélectionner votre wilaya.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(
-        `https://${process.env.EXPO_PUBLIC_DOMAIN}/api/auth/register`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role }),
-        }
-      );
+      const res = await fetch(`${BASE}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), password, role, cityId }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur lors de l'inscription");
       await login(data.token, data.user);
@@ -87,6 +99,7 @@ export default function RegisterScreen() {
             </View>
           ) : null}
 
+          {/* Role selector */}
           <Text style={s.label}>Je suis</Text>
           <View style={s.roleRow}>
             {(["customer", "driver"] as const).map((r) => (
@@ -96,12 +109,13 @@ export default function RegisterScreen() {
                 onPress={() => setRole(r)}
               >
                 <Text style={[s.roleBtnText, role === r && s.roleBtnTextActive]}>
-                  {r === "customer" ? "Client" : "Livreur"}
+                  {r === "customer" ? "🛒 Client" : "🚴 Livreur"}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
+          {/* Name */}
           <View style={s.inputGroup}>
             <Text style={s.label}>Nom complet</Text>
             <TextInput
@@ -114,6 +128,7 @@ export default function RegisterScreen() {
             />
           </View>
 
+          {/* Email */}
           <View style={s.inputGroup}>
             <Text style={s.label}>Adresse email</Text>
             <TextInput
@@ -127,6 +142,7 @@ export default function RegisterScreen() {
             />
           </View>
 
+          {/* Password */}
           <View style={s.inputGroup}>
             <Text style={s.label}>Mot de passe</Text>
             <TextInput
@@ -137,6 +153,44 @@ export default function RegisterScreen() {
               onChangeText={setPassword}
               secureTextEntry
             />
+          </View>
+
+          {/* City / Wilaya picker */}
+          <View style={s.inputGroup}>
+            <Text style={s.label}>
+              Wilaya{role === "driver" ? " (fixée définitivement)" : ""}
+            </Text>
+            {cities.length === 0 ? (
+              <ActivityIndicator color={colors.primary} style={{ marginTop: 8 }} />
+            ) : (
+              <View style={s.cityGrid}>
+                {cities.map(city => {
+                  const active = cityId === city.id;
+                  return (
+                    <TouchableOpacity
+                      key={city.id}
+                      style={[
+                        s.cityChip,
+                        {
+                          backgroundColor: active ? colors.primary : colors.background,
+                          borderColor: active ? colors.primary : colors.border,
+                        },
+                      ]}
+                      onPress={() => setCityId(city.id)}
+                    >
+                      <Text style={[s.cityChipText, { color: active ? "#fff" : colors.foreground }]}>
+                        {city.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+            {role === "driver" && cityId && (
+              <Text style={[s.lockNote, { color: colors.mutedForeground }]}>
+                🔒 En tant que livreur, vous ne recevrez que les missions de cette wilaya. Elle ne pourra pas être modifiée après l'inscription.
+              </Text>
+            )}
           </View>
 
           <TouchableOpacity
@@ -215,6 +269,20 @@ const styles = (colors: any, insets: any) =>
       fontSize: 15,
       color: colors.foreground,
       backgroundColor: colors.background,
+    },
+    cityGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+    cityChip: {
+      paddingHorizontal: 14,
+      paddingVertical: 8,
+      borderRadius: 20,
+      borderWidth: 1.5,
+    },
+    cityChipText: { fontSize: 13, fontWeight: "600" as const },
+    lockNote: {
+      fontSize: 11,
+      marginTop: 8,
+      lineHeight: 16,
+      fontStyle: "italic",
     },
     btn: {
       height: 50,

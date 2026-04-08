@@ -131,6 +131,15 @@ export default function Checkout() {
   useEffect(() => {
     const token = localStorage.getItem("tc_token");
     if (!token) return;
+
+    // Fetch profile to get preferred city
+    fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then((profile: any) => {
+        if (profile.cityId) setSelectedCityId(profile.cityId);
+      })
+      .catch(() => {});
+
     fetch("/api/addresses", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then((data: SavedAddress[]) => {

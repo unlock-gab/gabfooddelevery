@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, addressesTable, notificationsTable, ratingsTable } from "@workspace/db";
+import { usersTable, addressesTable, notificationsTable, ratingsTable, customerProfilesTable, driverProfilesTable } from "@workspace/db";
 import { eq, desc, and } from "drizzle-orm";
 import { authenticate } from "../lib/auth";
 
@@ -8,6 +8,14 @@ const router = Router();
 
 router.get("/profile", authenticate, async (req, res): Promise<void> => {
   const user = (req as any).user;
+  let cityId: number | null = null;
+  if (user.role === "customer") {
+    const [cp] = await db.select().from(customerProfilesTable).where(eq(customerProfilesTable.userId, user.id));
+    cityId = cp?.cityId ?? null;
+  } else if (user.role === "driver") {
+    const [dp] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, user.id));
+    cityId = dp?.cityId ?? null;
+  }
   res.json({
     id: user.id,
     name: user.name,
@@ -16,9 +24,24 @@ router.get("/profile", authenticate, async (req, res): Promise<void> => {
     role: user.role,
     avatarUrl: user.avatarUrl ?? null,
     language: user.language ?? "fr",
+    cityId,
     riskScore: null,
     createdAt: user.createdAt.toISOString(),
   });
+});
+
+router.post("/profile/password", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const { oldPassword, newPassword } = req.body;
+  if (!oldPassword || !newPassword) { res.status(400).json({ error: "Champs requis" }); return; }
+  if (newPassword.length < 6) { res.status(400).json({ error: "Le mot de passe doit contenir au moins 6 caractères" }); return; }
+  const { comparePassword, hashPassword } = await import("../lib/auth");
+  const [dbUser] = await db.select().from(usersTable).where(eq(usersTable.id, user.id));
+  const valid = await comparePassword(oldPassword, dbUser.passwordHash);
+  if (!valid) { res.status(400).json({ error: "Mot de passe actuel incorrect" }); return; }
+  const newHash = await hashPassword(newPassword);
+  await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, user.id));
+  res.json({ success: true });
 });
 
 router.patch("/profile", authenticate, async (req, res): Promise<void> => {

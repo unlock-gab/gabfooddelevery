@@ -10,6 +10,7 @@ export const driverAvailabilityEnum = pgEnum("driver_availability", ["available"
 export const customerProfilesTable = pgTable("customer_profiles", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().unique().references(() => usersTable.id),
+  cityId: integer("city_id").references(() => citiesTable.id),
   riskScore: riskLevelEnum("risk_score").notNull().default("low"),
   cancellationCount: integer("cancellation_count").notNull().default(0),
   unreachableCount: integer("unreachable_count").notNull().default(0),

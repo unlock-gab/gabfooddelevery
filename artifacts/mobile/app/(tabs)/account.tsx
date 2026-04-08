@@ -265,9 +265,9 @@ export default function AccountScreen() {
           )}
           <MenuItem
             icon="shield"
-            label="Sécurité"
-            sublabel="Mot de passe et données"
-            onPress={() => {}}
+            label="Sécurité & Profil"
+            sublabel="Informations personnelles et mot de passe"
+            onPress={() => router.push("/profile" as any)}
             colors={colors}
           />
           <MenuItem

@@ -15,6 +15,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }
 
   const { name, email, password, phone, role } = parsed.data;
+  const cityId: number | null = req.body.cityId ? Number(req.body.cityId) : null;
 
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, email));
   if (existing) {
@@ -32,9 +33,9 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   }).returning();
 
   if (role === "customer") {
-    await db.insert(customerProfilesTable).values({ userId: user.id });
+    await db.insert(customerProfilesTable).values({ userId: user.id, cityId: cityId ?? null });
   } else if (role === "driver") {
-    await db.insert(driverProfilesTable).values({ userId: user.id });
+    await db.insert(driverProfilesTable).values({ userId: user.id, cityId: cityId ?? null });
   }
 
   const token = signToken({ userId: user.id, role: user.role });

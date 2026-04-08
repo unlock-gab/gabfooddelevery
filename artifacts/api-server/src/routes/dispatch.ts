@@ -69,7 +69,18 @@ router.get("/dispatch/:orderId/attempts", authenticate, async (req, res): Promis
 router.get("/driver/missions/available", authenticate, requireRole("driver"), async (req, res): Promise<void> => {
   const user = (req as any).user;
 
-  // Get orders in pending_dispatch or dispatching_driver states
+  // Get driver's cityId to filter by wilaya
+  const [driverProfile] = await db.select({ cityId: driverProfilesTable.cityId })
+    .from(driverProfilesTable)
+    .where(eq(driverProfilesTable.userId, user.id));
+  const driverCityId = driverProfile?.cityId ?? null;
+
+  // Build conditions: pending_dispatch + same city as driver (if driver has a city)
+  const conditions: any[] = [eq(ordersTable.status, "pending_dispatch")];
+  if (driverCityId) {
+    conditions.push(eq(restaurantsTable.cityId, driverCityId));
+  }
+
   const orders = await db.select({
     order: ordersTable,
     restaurantName: restaurantsTable.name,
@@ -77,9 +88,7 @@ router.get("/driver/missions/available", authenticate, requireRole("driver"), as
   })
     .from(ordersTable)
     .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
-    .where(and(
-      eq(ordersTable.status, "pending_dispatch"),
-    ))
+    .where(and(...conditions))
     .orderBy(ordersTable.createdAt)
     .limit(10);
 
