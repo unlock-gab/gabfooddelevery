@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -126,6 +127,19 @@ export default function OrderTrackingScreen() {
 
   const isFinal = ["delivered", "cancelled"].includes(o.status);
 
+  const openGPS = () => {
+    const address = o.deliveryAddress ?? "";
+    if (!address) { Alert.alert("Adresse", "Adresse de livraison introuvable."); return; }
+    const encoded = encodeURIComponent(address);
+    const googleUrl = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+    const nativeUrl = Platform.OS === "ios"
+      ? `maps://?q=${encoded}`
+      : `geo:0,0?q=${encoded}`;
+    Linking.canOpenURL(nativeUrl)
+      .then(can => Linking.openURL(can ? nativeUrl : googleUrl))
+      .catch(() => Linking.openURL(googleUrl));
+  };
+
   const driverAction: { label: string; icon: string; color: string; bg: string; path: string } | null =
     isDriver ? (() => {
       switch (o.status) {
@@ -215,9 +229,19 @@ export default function OrderTrackingScreen() {
         {/* Order details */}
         <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[s.cardTitle, { color: colors.foreground }]}>Détails</Text>
-          <View style={s.detailRow}>
-            <Feather name="map-pin" size={14} color={colors.mutedForeground} />
-            <Text style={[s.detailText, { color: colors.foreground }]} numberOfLines={2}>{o.deliveryAddress}</Text>
+          <View style={[s.detailRow, { alignItems: "flex-start" }]}>
+            <Feather name="map-pin" size={14} color={colors.mutedForeground} style={{ marginTop: 2 }} />
+            <Text style={[s.detailText, { color: colors.foreground, flex: 1 }]} numberOfLines={3}>{o.deliveryAddress}</Text>
+            {isDriver && (
+              <TouchableOpacity
+                onPress={openGPS}
+                style={{ marginLeft: 8, backgroundColor: "#16A34A", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, flexDirection: "row", alignItems: "center", gap: 4 }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="navigate" size={13} color="#fff" />
+                <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>GPS</Text>
+              </TouchableOpacity>
+            )}
           </View>
           {o.driverName && (
             <View style={s.detailRow}>
@@ -257,6 +281,21 @@ export default function OrderTrackingScreen() {
             <Text style={[s.totalLabel, { color: colors.mutedForeground }]}>Gain estimé</Text>
             <Text style={[s.totalValue, { color: colors.primary }]}>+{formatDA(o.deliveryFee ?? 0)}</Text>
           </View>
+        )}
+
+        {/* GPS button — driver only */}
+        {isDriver && o.deliveryAddress && (
+          <TouchableOpacity
+            onPress={openGPS}
+            style={{ backgroundColor: "#16A34A", borderRadius: 14, padding: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 }}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="navigate-circle" size={24} color="#fff" />
+            <View>
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>Ouvrir la navigation GPS</Text>
+              <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 11, marginTop: 1 }} numberOfLines={1}>{o.deliveryAddress}</Text>
+            </View>
+          </TouchableOpacity>
         )}
       </ScrollView>
 
