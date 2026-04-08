@@ -224,6 +224,263 @@ router.get("/admin/statistics", authenticate, requireRole("admin"), async (_req,
   });
 });
 
+// OPERATIONAL OVERVIEW — live control center data
+router.get("/admin/operational", authenticate, requireRole("admin"), async (_req, res): Promise<void> => {
+  const now = new Date();
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+
+  // ── Live ops counters ──
+  const [liveOps] = await db.select({
+    activeOrders: sql<number>`count(*) filter (where ${ordersTable.status} in ('picked_up','on_the_way','arriving_soon'))`,
+    pendingDispatch: sql<number>`count(*) filter (where ${ordersTable.status} in ('pending_dispatch','dispatching_driver'))`,
+    awaitingConfirmation: sql<number>`count(*) filter (where ${ordersTable.status} = 'awaiting_customer_confirmation')`,
+    needsUpdate: sql<number>`count(*) filter (where ${ordersTable.status} = 'needs_update')`,
+    confirmationFailed: sql<number>`count(*) filter (where ${ordersTable.status} = 'confirmation_failed')`,
+    preparing: sql<number>`count(*) filter (where ${ordersTable.status} = 'preparing')`,
+    readyPickup: sql<number>`count(*) filter (where ${ordersTable.status} = 'ready_for_pickup')`,
+    deliveredToday: sql<number>`count(*) filter (where ${ordersTable.status} = 'delivered' and ${ordersTable.createdAt} >= ${today})`,
+    cancelledToday: sql<number>`count(*) filter (where ${ordersTable.status} = 'cancelled' and ${ordersTable.createdAt} >= ${today})`,
+    revenueToday: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' and ${ordersTable.createdAt}>=${today} then ${ordersTable.total}::numeric else 0 end),0)`,
+    commissionsToday: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' and ${ordersTable.createdAt}>=${today} then ${ordersTable.subtotal}::numeric*0.12 else 0 end),0)`,
+  }).from(ordersTable);
+
+  const [drvLive] = await db.select({
+    online: sql<number>`count(*) filter (where ${driverProfilesTable.isOnline}=true and ${driverProfilesTable.status}='approved')`,
+    total: count(),
+    pending: sql<number>`count(*) filter (where ${driverProfilesTable.status}='pending')`,
+  }).from(driverProfilesTable);
+
+  const [rstLive] = await db.select({
+    open: sql<number>`count(*) filter (where ${restaurantsTable.isOpen}=true and ${restaurantsTable.status}='approved')`,
+    total: sql<number>`count(*) filter (where ${restaurantsTable.status}='approved')`,
+    pending: sql<number>`count(*) filter (where ${restaurantsTable.status}='pending')`,
+  }).from(restaurantsTable);
+
+  const [fraudLive] = await db.select({
+    open: sql<number>`count(*) filter (where ${fraudFlagsTable.isResolved}=false)`,
+  }).from(fraudFlagsTable);
+
+  const [disputeLive] = await db.select({
+    open: sql<number>`count(*) filter (where ${disputesTable.status} in ('open','under_review'))`,
+  }).from(disputesTable);
+
+  // ── Dispatch stats (today) ──
+  const [dispatchStats] = await db.select({
+    totalAttempts: sql<number>`count(*) filter (where ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    noDriverCount: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'no_driver' and ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    rejectedCount: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'rejected' and ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    acceptedCount: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'accepted' and ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+    timeoutCount: sql<number>`count(*) filter (where ${dispatchAttemptsTable.result} = 'timeout' and ${dispatchAttemptsTable.attemptedAt} >= ${today})`,
+  }).from(dispatchAttemptsTable);
+
+  // ── Confirmation stats (today) ──
+  const [confStats] = await db.select({
+    confirmed: sql<number>`count(*) filter (where ${deliveryConfirmationsTable.result}='confirmed' and ${deliveryConfirmationsTable.createdAt}>=${today})`,
+    needsCorrection: sql<number>`count(*) filter (where ${deliveryConfirmationsTable.result}='needs_correction' and ${deliveryConfirmationsTable.createdAt}>=${today})`,
+    failed: sql<number>`count(*) filter (where ${deliveryConfirmationsTable.result}='failed' and ${deliveryConfirmationsTable.createdAt}>=${today})`,
+  }).from(deliveryConfirmationsTable);
+
+  // ── Critical orders (stuck/problematic) ──
+  const criticalOrders = await db.select({
+    id: ordersTable.id,
+    orderNumber: ordersTable.orderNumber,
+    status: ordersTable.status,
+    createdAt: ordersTable.createdAt,
+    updatedAt: ordersTable.updatedAt,
+    restaurantName: restaurantsTable.name,
+    total: ordersTable.total,
+    deliveryAddress: ordersTable.deliveryAddress,
+  }).from(ordersTable)
+    .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .where(sql`${ordersTable.status} in ('needs_update','confirmation_failed','pending_dispatch','dispatching_driver','awaiting_customer_confirmation')`)
+    .orderBy(ordersTable.createdAt)
+    .limit(15);
+
+  // ── Activity feed (recent status changes) ──
+  const activityFeed = await db.select({
+    id: orderStatusHistoryTable.id,
+    orderId: orderStatusHistoryTable.orderId,
+    status: orderStatusHistoryTable.status,
+    note: orderStatusHistoryTable.note,
+    createdAt: orderStatusHistoryTable.createdAt,
+    orderNumber: ordersTable.orderNumber,
+  }).from(orderStatusHistoryTable)
+    .leftJoin(ordersTable, eq(orderStatusHistoryTable.orderId, ordersTable.id))
+    .orderBy(desc(orderStatusHistoryTable.createdAt))
+    .limit(20);
+
+  // ── Driver performance snapshot ──
+  const driverPerformance = await db.select({
+    id: driverProfilesTable.id,
+    name: usersTable.name,
+    deliveries: driverProfilesTable.totalDeliveries,
+    rating: driverProfilesTable.avgRating,
+    isOnline: driverProfilesTable.isOnline,
+    status: driverProfilesTable.status,
+    earningsTotal: driverProfilesTable.earningsTotal,
+  }).from(driverProfilesTable)
+    .leftJoin(usersTable, eq(driverProfilesTable.userId, usersTable.id))
+    .where(eq(driverProfilesTable.status, "approved"))
+    .orderBy(desc(driverProfilesTable.totalDeliveries))
+    .limit(8);
+
+  // ── Restaurant reliability ──
+  const restaurantReliability = await db.select({
+    id: restaurantsTable.id,
+    name: restaurantsTable.name,
+    isOpen: restaurantsTable.isOpen,
+    status: restaurantsTable.status,
+    totalOrders: sql<number>`count(${ordersTable.id})`,
+    deliveredOrders: sql<number>`count(*) filter (where ${ordersTable.status}='delivered')`,
+    cancelledOrders: sql<number>`count(*) filter (where ${ordersTable.status}='cancelled')`,
+  }).from(restaurantsTable)
+    .leftJoin(ordersTable, eq(ordersTable.restaurantId, restaurantsTable.id))
+    .where(eq(restaurantsTable.status, "approved"))
+    .groupBy(restaurantsTable.id, restaurantsTable.name, restaurantsTable.isOpen, restaurantsTable.status)
+    .orderBy(sql`count(${ordersTable.id}) desc`)
+    .limit(8);
+
+  // ── Customer risk ──
+  const customerRisk = await db.select({
+    id: customerProfilesTable.id,
+    riskScore: customerProfilesTable.riskScore,
+    userId: customerProfilesTable.userId,
+    name: usersTable.name,
+    phone: usersTable.phone,
+    orderCount: sql<number>`count(${ordersTable.id})`,
+    cancelledCount: sql<number>`count(*) filter (where ${ordersTable.status}='cancelled')`,
+  }).from(customerProfilesTable)
+    .leftJoin(usersTable, eq(customerProfilesTable.userId, usersTable.id))
+    .leftJoin(ordersTable, eq(ordersTable.customerId, customerProfilesTable.userId))
+    .where(sql`${customerProfilesTable.riskScore} in ('medium','high')`)
+    .groupBy(customerProfilesTable.id, customerProfilesTable.riskScore, customerProfilesTable.userId, usersTable.name, usersTable.phone)
+    .orderBy(sql`count(*) filter (where ${ordersTable.status}='cancelled') desc`)
+    .limit(8);
+
+  // ── Finance snapshot ──
+  const [finance] = await db.select({
+    revenueToday: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' and ${ordersTable.createdAt}>=${today} then ${ordersTable.total}::numeric else 0 end),0)`,
+    revenueTotal: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' then ${ordersTable.total}::numeric else 0 end),0)`,
+    codOrders: sql<number>`count(*) filter (where ${ordersTable.paymentMethod}='cash_on_delivery' and ${ordersTable.status}='delivered')`,
+    onlineOrders: sql<number>`count(*) filter (where ${ordersTable.paymentMethod}='online' and ${ordersTable.status}='delivered')`,
+    pendingPayments: sql<number>`count(*) filter (where ${ordersTable.paymentStatus}='pending' and ${ordersTable.status} not in ('cancelled','failed'))`,
+    commissionsToday: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' and ${ordersTable.createdAt}>=${today} then ${ordersTable.subtotal}::numeric*0.12 else 0 end),0)`,
+    commissionsTotal: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' then ${ordersTable.subtotal}::numeric*0.12 else 0 end),0)`,
+    deliveryFeesTotal: sql<number>`coalesce(sum(case when ${ordersTable.status}='delivered' then ${ordersTable.deliveryFee}::numeric else 0 end),0)`,
+  }).from(ordersTable);
+
+  const criticalAlerts = (
+    Number(liveOps?.needsUpdate ?? 0) +
+    Number(liveOps?.confirmationFailed ?? 0) +
+    Number(dispatchStats?.noDriverCount ?? 0) +
+    Number(fraudLive?.open ?? 0) +
+    Number(disputeLive?.open ?? 0)
+  );
+
+  const acceptanceRate = Number(dispatchStats?.totalAttempts ?? 0) > 0
+    ? Math.round(Number(dispatchStats?.acceptedCount ?? 0) / Number(dispatchStats?.totalAttempts ?? 1) * 100)
+    : 0;
+
+  res.json({
+    liveOps: {
+      activeOrders: Number(liveOps?.activeOrders ?? 0),
+      pendingDispatch: Number(liveOps?.pendingDispatch ?? 0),
+      awaitingConfirmation: Number(liveOps?.awaitingConfirmation ?? 0),
+      needsUpdate: Number(liveOps?.needsUpdate ?? 0),
+      confirmationFailed: Number(liveOps?.confirmationFailed ?? 0),
+      preparing: Number(liveOps?.preparing ?? 0),
+      readyPickup: Number(liveOps?.readyPickup ?? 0),
+      deliveredToday: Number(liveOps?.deliveredToday ?? 0),
+      cancelledToday: Number(liveOps?.cancelledToday ?? 0),
+      revenueToday: Math.round(Number(liveOps?.revenueToday ?? 0)),
+      commissionsToday: Math.round(Number(liveOps?.commissionsToday ?? 0)),
+      onlineDrivers: Number(drvLive?.online ?? 0),
+      totalDrivers: Number(drvLive?.total ?? 0),
+      pendingDriverApprovals: Number(drvLive?.pending ?? 0),
+      openRestaurants: Number(rstLive?.open ?? 0),
+      totalRestaurants: Number(rstLive?.total ?? 0),
+      pendingRestaurantApprovals: Number(rstLive?.pending ?? 0),
+      openFraudFlags: Number(fraudLive?.open ?? 0),
+      openDisputes: Number(disputeLive?.open ?? 0),
+      criticalAlerts,
+    },
+    dispatch: {
+      pending: Number(liveOps?.pendingDispatch ?? 0),
+      totalAttempts: Number(dispatchStats?.totalAttempts ?? 0),
+      accepted: Number(dispatchStats?.acceptedCount ?? 0),
+      rejected: Number(dispatchStats?.rejectedCount ?? 0),
+      timeout: Number(dispatchStats?.timeoutCount ?? 0),
+      noDriver: Number(dispatchStats?.noDriverCount ?? 0),
+      acceptanceRate,
+    },
+    confirmation: {
+      awaiting: Number(liveOps?.awaitingConfirmation ?? 0),
+      needsUpdate: Number(liveOps?.needsUpdate ?? 0),
+      failed: Number(liveOps?.confirmationFailed ?? 0),
+      confirmedToday: Number(confStats?.confirmed ?? 0),
+      needsCorrectionToday: Number(confStats?.needsCorrection ?? 0),
+      failedToday: Number(confStats?.failed ?? 0),
+    },
+    criticalOrders: criticalOrders.map(o => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      status: o.status,
+      restaurantName: o.restaurantName ?? "—",
+      total: Math.round(Number(o.total ?? 0)),
+      deliveryAddress: o.deliveryAddress,
+      createdAt: o.createdAt,
+      updatedAt: o.updatedAt,
+      minutesAgo: Math.round((now.getTime() - new Date(o.createdAt!).getTime()) / 60000),
+    })),
+    activityFeed: activityFeed.map(a => ({
+      id: a.id,
+      orderId: a.orderId,
+      orderNumber: a.orderNumber ?? `#${a.orderId}`,
+      status: a.status,
+      note: a.note,
+      createdAt: a.createdAt,
+    })),
+    driverPerformance: driverPerformance.map(d => ({
+      id: d.id,
+      name: d.name ?? "—",
+      deliveries: Number(d.deliveries ?? 0),
+      rating: Number(d.rating ?? 0),
+      isOnline: d.isOnline,
+      earnings: Math.round(Number(d.earningsTotal ?? 0)),
+    })),
+    restaurantReliability: restaurantReliability.map(r => ({
+      id: r.id,
+      name: r.name ?? "—",
+      isOpen: r.isOpen,
+      totalOrders: Number(r.totalOrders ?? 0),
+      deliveredOrders: Number(r.deliveredOrders ?? 0),
+      cancelledOrders: Number(r.cancelledOrders ?? 0),
+      deliveryRate: Number(r.totalOrders) > 0
+        ? Math.round(Number(r.deliveredOrders) / Number(r.totalOrders) * 100)
+        : 0,
+    })),
+    customerRisk: customerRisk.map(c => ({
+      id: c.id,
+      name: c.name ?? "Client anonyme",
+      phone: c.phone,
+      riskScore: c.riskScore,
+      orderCount: Number(c.orderCount ?? 0),
+      cancelledCount: Number(c.cancelledCount ?? 0),
+    })),
+    finance: {
+      revenueToday: Math.round(Number(finance?.revenueToday ?? 0)),
+      revenueTotal: Math.round(Number(finance?.revenueTotal ?? 0)),
+      commissionsToday: Math.round(Number(finance?.commissionsToday ?? 0)),
+      commissionsTotal: Math.round(Number(finance?.commissionsTotal ?? 0)),
+      deliveryFeesTotal: Math.round(Number(finance?.deliveryFeesTotal ?? 0)),
+      codOrders: Number(finance?.codOrders ?? 0),
+      onlineOrders: Number(finance?.onlineOrders ?? 0),
+      pendingPayments: Number(finance?.pendingPayments ?? 0),
+    },
+  });
+});
+
 // FRAUD FLAGS
 router.get("/admin/fraud-flags", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
   const { severity, resolved } = req.query;
