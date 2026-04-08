@@ -34,6 +34,8 @@ export interface RegisterBody {
   /** @nullable */
   phone?: string | null;
   role: RegisterBodyRole;
+  /** @nullable */
+  cityId?: number | null;
 }
 
 export interface LoginBody {

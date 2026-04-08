@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useRegister } from "@workspace/api-client-react";
+import { useRegister, useListCities } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,16 +11,22 @@ import { Input } from "@/components/ui/input";
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
 } from "@/components/ui/form";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingBag, Building2, Truck, UtensilsCrossed, ChevronRight } from "lucide-react";
+import { ShoppingBag, Building2, Truck, UtensilsCrossed, ChevronRight, MapPin } from "lucide-react";
 
 const registerSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
-  email: z.string().email("Email invalide"),
+  name:     z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  email:    z.string().email("Email invalide"),
   password: z.string().min(6, "Le mot de passe doit contenir au moins 6 caractères"),
-  phone: z.string().optional(),
-  role: z.enum(["customer", "restaurant", "driver"]),
+  phone:    z.string().optional(),
+  role:     z.enum(["customer", "restaurant", "driver"]),
+  cityId:   z.number({ invalid_type_error: "Veuillez choisir une wilaya" }).nullable().optional(),
 });
+
+type FormValues = z.infer<typeof registerSchema>;
 
 const ROLE_CONFIG = {
   customer: {
@@ -29,6 +35,7 @@ const ROLE_CONFIG = {
     headline: "Commandez en toute confiance",
     desc: "Accédez aux meilleurs restaurants d'Alger avec livraison synchronisée PrepLock™.",
     perks: ["Suivi de commande en temps réel", "PrepLock™ : repas toujours chaud", "Historique et récapitulatifs"],
+    requireCity: true,
   },
   restaurant: {
     icon: Building2,
@@ -36,6 +43,7 @@ const ROLE_CONFIG = {
     headline: "Boostez votre activité",
     desc: "Dashboard professionnel avec statistiques en temps réel et gestion simplifiée.",
     perks: ["Tableau de bord opérationnel", "Stats chiffre d'affaires", "Gestion des menus et catégories"],
+    requireCity: false,
   },
   driver: {
     icon: Truck,
@@ -43,6 +51,7 @@ const ROLE_CONFIG = {
     headline: "Travaillez à votre rythme",
     desc: "Gérez vos missions depuis votre téléphone avec un système de dispatch équitable.",
     perks: ["Missions gérées en temps réel", "Dispatch transparent", "Gains quotidiens suivis"],
+    requireCity: true,
   },
 };
 
@@ -53,14 +62,17 @@ export default function Register() {
   const registerMutation = useRegister();
   const [activeRole, setActiveRole] = React.useState<"customer" | "restaurant" | "driver">("customer");
 
-  const form = useForm<z.infer<typeof registerSchema>>({
+  const { data: allCities } = useListCities();
+  const activeCities = (allCities ?? []).filter((c: any) => c.isActive);
+
+  const form = useForm<FormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", password: "", phone: "", role: "customer" },
+    defaultValues: { name: "", email: "", password: "", phone: "", role: "customer", cityId: null },
   });
 
-  const onSubmit = (values: z.infer<typeof registerSchema>) => {
+  const onSubmit = (values: FormValues) => {
     registerMutation.mutate(
-      { data: values },
+      { data: { ...values, cityId: values.cityId ?? null } },
       {
         onSuccess: (data) => {
           login(data.user, data.token);
@@ -135,16 +147,19 @@ export default function Register() {
 
             <Tabs defaultValue="customer" onValueChange={(val) => {
               form.setValue("role", val as any);
+              form.setValue("cityId", null);
               setActiveRole(val as any);
             }}>
               <TabsList className="grid w-full grid-cols-3 mb-6 h-11">
-                <TabsTrigger value="customer" className="text-sm font-semibold">👤 Client</TabsTrigger>
+                <TabsTrigger value="customer"   className="text-sm font-semibold">👤 Client</TabsTrigger>
                 <TabsTrigger value="restaurant" className="text-sm font-semibold">🍽️ Restaurant</TabsTrigger>
-                <TabsTrigger value="driver" className="text-sm font-semibold">🛵 Livreur</TabsTrigger>
+                <TabsTrigger value="driver"     className="text-sm font-semibold">🛵 Livreur</TabsTrigger>
               </TabsList>
 
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+
+                  {/* Nom */}
                   <FormField control={form.control} name="name"
                     render={({ field }) => (
                       <FormItem>
@@ -156,6 +171,8 @@ export default function Register() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Email */}
                   <FormField control={form.control} name="email"
                     render={({ field }) => (
                       <FormItem>
@@ -167,10 +184,14 @@ export default function Register() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Téléphone */}
                   <FormField control={form.control} name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="font-semibold text-sm">Téléphone <span className="text-muted-foreground font-normal">(optionnel)</span></FormLabel>
+                        <FormLabel className="font-semibold text-sm">
+                          Téléphone <span className="text-muted-foreground font-normal">(optionnel)</span>
+                        </FormLabel>
                         <FormControl>
                           <Input placeholder="+213 5XX XXX XXX" className="h-11" {...field} />
                         </FormControl>
@@ -178,6 +199,53 @@ export default function Register() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Wilaya — uniquement client et livreur */}
+                  {roleConfig.requireCity && (
+                    <FormField control={form.control} name="cityId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold text-sm flex items-center gap-1.5">
+                            <MapPin className="w-3.5 h-3.5 text-primary" />
+                            Wilaya
+                          </FormLabel>
+                          <Select
+                            value={field.value != null ? String(field.value) : ""}
+                            onValueChange={(val) => field.onChange(val ? Number(val) : null)}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-11">
+                                <SelectValue placeholder={
+                                  activeCities.length === 0
+                                    ? "Aucune wilaya disponible pour l'instant"
+                                    : "Sélectionnez votre wilaya…"
+                                } />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {activeCities.length === 0 ? (
+                                <div className="py-4 text-center text-sm text-muted-foreground">
+                                  Aucune wilaya disponible
+                                </div>
+                              ) : (
+                                activeCities.map((city: any) => (
+                                  <SelectItem key={city.id} value={String(city.id)}>
+                                    {city.name}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Seules les wilayas où TastyCrousty est disponible sont affichées.
+                          </p>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+
+                  {/* Mot de passe */}
                   <FormField control={form.control} name="password"
                     render={({ field }) => (
                       <FormItem>
@@ -189,7 +257,12 @@ export default function Register() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full h-12 text-base font-semibold rounded-xl mt-1" disabled={registerMutation.isPending}>
+
+                  <Button
+                    type="submit"
+                    className="w-full h-12 text-base font-semibold rounded-xl mt-1"
+                    disabled={registerMutation.isPending}
+                  >
                     {registerMutation.isPending ? "Création du compte..." : "Créer mon compte"}
                   </Button>
                 </form>
