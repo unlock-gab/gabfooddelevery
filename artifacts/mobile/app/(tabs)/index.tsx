@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   FlatList,
   Platform,
   Pressable,
@@ -26,6 +27,76 @@ import { useColors } from "@/hooks/useColors";
 import { useListRestaurants, useListOrders, useGetAvailableMissions, useAcceptMission, useRejectMission, useGetDriverStats } from "@workspace/api-client-react";
 import { formatDA, getStatusLabel, getStatusColor } from "@/utils/format";
 import { useQueryClient } from "@tanstack/react-query";
+
+const MISSION_TIMEOUT_SECONDS = 60;
+
+function MissionCountdown({ firstSeenAt, onExpire }: {
+  firstSeenAt: number;
+  onExpire: () => void;
+}) {
+  const elapsed = Math.floor((Date.now() - firstSeenAt) / 1000);
+  const initial = Math.max(0, MISSION_TIMEOUT_SECONDS - elapsed);
+
+  const [remaining, setRemaining] = useState(initial);
+  const progressAnim = useRef(new Animated.Value(initial / MISSION_TIMEOUT_SECONDS)).current;
+  const expiredRef = useRef(false);
+
+  useEffect(() => {
+    if (initial <= 0 && !expiredRef.current) {
+      expiredRef.current = true;
+      onExpire();
+      return;
+    }
+    const interval = setInterval(() => {
+      setRemaining(prev => {
+        const next = prev - 1;
+        if (next <= 0 && !expiredRef.current) {
+          expiredRef.current = true;
+          clearInterval(interval);
+          onExpire();
+          return 0;
+        }
+        return Math.max(0, next);
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: remaining / MISSION_TIMEOUT_SECONDS,
+      duration: 800,
+      useNativeDriver: false,
+    }).start();
+  }, [remaining]);
+
+  const pct = remaining / MISSION_TIMEOUT_SECONDS;
+  const barColor = pct > 0.5 ? "#22C55E" : pct > 0.25 ? "#F59E0B" : "#EF4444";
+  const textColor = pct > 0.5 ? "#16A34A" : pct > 0.25 ? "#D97706" : "#DC2626";
+
+  return (
+    <View style={{ marginTop: 12 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+        <Text style={{ fontSize: 11, color: "#9CA3AF", fontWeight: "600" }}>
+          ⏱ Temps pour accepter
+        </Text>
+        <Text style={{ fontSize: 13, fontWeight: "800", color: textColor }}>
+          {remaining}s
+        </Text>
+      </View>
+      <View style={{ height: 6, backgroundColor: "#F3F4F6", borderRadius: 3, overflow: "hidden" }}>
+        <Animated.View
+          style={{
+            height: 6,
+            borderRadius: 3,
+            backgroundColor: barColor,
+            width: progressAnim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] }),
+          }}
+        />
+      </View>
+    </View>
+  );
+}
 
 const CATEGORIES = [
   "Tous", "Fast Food", "Pizza", "Algérien",
@@ -131,10 +202,28 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
     } catch (_) {}
   };
 
-  // Play notification sound when a new mission arrives
+  // Track first-seen timestamp for each mission (for countdown timer)
+  const missionFirstSeenRef = useRef<Record<number, number>>({});
+
+  // Play notification sound + record first-seen when a new mission arrives
   const prevMissionCount = useRef<number>(-1);
   useEffect(() => {
-    const count = (availableMissions as any[]).length;
+    const now = Date.now();
+    const mList = availableMissions as any[];
+    // Record first-seen time for new missions
+    mList.forEach((m: any) => {
+      if (!missionFirstSeenRef.current[m.orderId]) {
+        missionFirstSeenRef.current[m.orderId] = now;
+      }
+    });
+    // Clean up entries for missions that are no longer available
+    const currentIds = new Set(mList.map((m: any) => m.orderId));
+    Object.keys(missionFirstSeenRef.current).forEach(id => {
+      if (!currentIds.has(Number(id))) {
+        delete missionFirstSeenRef.current[Number(id)];
+      }
+    });
+    const count = mList.length;
     if (prevMissionCount.current >= 0 && count > prevMissionCount.current && isOnline) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       playNotifSound();
@@ -424,7 +513,11 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
                       </View>
                     </View>
                   </View>
-                  <View style={{ flexDirection: "row", gap: 10 }}>
+                  <MissionCountdown
+                    firstSeenAt={missionFirstSeenRef.current[m.orderId] ?? Date.now()}
+                    onExpire={() => handleReject(m.orderId)}
+                  />
+                  <View style={{ flexDirection: "row", gap: 10, marginTop: 12 }}>
                     <TouchableOpacity
                       style={{ flex: 1, backgroundColor: "#EF4444", borderRadius: 10, paddingVertical: 10, alignItems: "center" }}
                       onPress={() => handleReject(m.orderId)}
