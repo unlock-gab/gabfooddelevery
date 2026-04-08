@@ -1,0 +1,120 @@
+Continue the Tasty Crousty project.
+
+Now focus on premium polishing, consistency, localization quality, and final UX refinement.
+
+This step should make the product feel launch-ready visually and structurally.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Improve:
+- visual quality
+- consistency
+- responsiveness
+- French language polish
+- Arabic RTL polish
+- dashboard clarity
+- customer trust
+- overall premium presentation
+
+==================================================
+UI POLISH REQUIREMENTS
+==================================================
+
+Upgrade the UI across:
+- homepage
+- restaurant listings
+- restaurant detail pages
+- cart
+- checkout
+- tracking page
+- customer account pages
+- restaurant dashboard
+- driver interface
+- admin panel
+
+Improve:
+- spacing
+- hierarchy
+- typography
+- cards
+- tables
+- forms
+- badges
+- timelines
+- empty states
+- loading states
+- icons
+- mobile responsiveness
+- transitions / subtle animations
+
+==================================================
+DESIGN QUALITY
+==================================================
+
+The platform must feel:
+- premium
+- elegant
+- fast
+- operationally clear
+- startup-grade
+- trustworthy
+
+Do not use generic ugly dashboard visuals.
+Make every area feel intentional and polished.
+
+==================================================
+FRENCH FINALIZATION
+==================================================
+
+French is the primary language.
+Refine French wording across the app:
+- buttons
+- labels
+- navigation
+- statuses
+- validation messages
+- notifications
+- dashboard labels
+- empty states
+- helper text
+
+Use natural, polished, product-quality French.
+
+==================================================
+ARABIC SUPPORT
+==================================================
+
+Improve Arabic mode:
+- proper RTL layout
+- correct spacing
+- proper alignment
+- readable typography
+- no broken layout
+- clean translated UI for core pages and dashboards
+
+==================================================
+FINAL PRODUCT TOUCHES
+==================================================
+
+Add:
+- better status visuals
+- stronger timeline design
+- better order cards
+- polished role-specific dashboards
+- better homepage section flow
+- better CTA hierarchy
+- stronger visual trust cues
+- improved data density in admin where useful
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+In this step:
+1. polish the entire UI
+2. refine localization
+3. improve responsiveness
+4. improve Arabic RTL support
+5. make the product feel premium and presentable to a real client

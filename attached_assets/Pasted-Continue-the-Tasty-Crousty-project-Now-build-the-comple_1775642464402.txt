@@ -1,0 +1,198 @@
+Continue the Tasty Crousty project.
+
+Now build the **complete premium admin panel** as a serious operations dashboard.
+
+This admin area is one of the most important parts of the platform.
+It must feel like a real logistics and food-delivery operations center.
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Build a complete admin panel for:
+- monitoring the platform
+- managing users
+- managing restaurants
+- managing drivers
+- managing orders
+- controlling dispatch
+- handling confirmations
+- detecting fraud
+- managing zones and settings
+- reading platform analytics
+
+==================================================
+ADMIN UI DIRECTION
+==================================================
+
+The admin panel must look:
+- modern
+- premium
+- operationally clear
+- data-rich
+- easy to scan
+- responsive
+- not generic
+
+Use:
+- strong sidebar
+- topbar
+- dashboard widgets
+- charts
+- filters
+- searchable tables
+- detail drawers/pages
+- timeline blocks
+- badges
+- tabs
+- action menus
+- alert cards
+
+==================================================
+ADMIN SECTIONS
+==================================================
+
+Build these sections in depth:
+
+1. Overview
+- total orders
+- active deliveries
+- pending confirmations
+- pending dispatch
+- preparing orders
+- delivered orders
+- cancellation rate
+- failed confirmation rate
+- revenue
+- restaurant count
+- drivers count
+- online drivers
+- quick alerts
+
+2. Orders
+- full orders table
+- advanced filters
+- detail page
+- status history timeline
+- dispatch logs
+- confirmation result
+- QR delivery state
+- payment state
+- fraud flags
+- support notes
+- manual actions
+
+3. Restaurants
+- list page
+- detail page
+- approval queue
+- restaurant status control
+- zone assignment
+- prep time overview
+- ratings
+- reliability metrics
+
+4. Drivers
+- list page
+- detail page
+- approval queue
+- performance metrics
+- online/offline monitoring
+- acceptance rate
+- delivery speed
+- failed confirmation stats
+- availability status
+- zone mapping
+
+5. Customers
+- list page
+- detail page
+- order history
+- cancellation behavior
+- unreachable behavior
+- risk score
+- fraud flags
+- account controls
+
+6. Cities and Zones
+- city management
+- zone management
+- zone activation/deactivation
+- restaurant-zone mapping
+- driver-zone mapping
+
+7. Dispatch Center
+- live dispatch overview
+- timed-out dispatches
+- fallback retries
+- manual assignment tools
+- dispatch analytics
+
+8. Confirmation Center
+- awaiting confirmation queue
+- needs update queue
+- failed confirmation queue
+- manual review tools
+
+9. Fraud & Disputes
+- flagged users
+- flagged orders
+- suspicious patterns
+- dispute cases
+- resolution notes
+
+10. Ratings
+- restaurant ratings
+- driver ratings
+- negative review visibility
+- moderation structure
+
+11. Payments
+- payment records
+- COD stats
+- online payment placeholder status
+- refunds
+- commission overview
+
+12. Notifications
+- notification logs
+- failed notifications
+- notification templates placeholder architecture
+
+13. Settings
+- dispatch radius
+- timeout rules
+- order rules
+- QR validation settings
+- fees / commission settings
+- notification settings
+- localization settings placeholder
+
+==================================================
+ADMIN ACTIONS
+==================================================
+
+Allow admin actions such as:
+- approve/reject restaurant
+- approve/reject driver
+- activate/deactivate accounts
+- retry dispatch
+- manually assign driver
+- cancel order
+- mark special review
+- add internal notes
+- change zone settings
+- manage platform settings
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+In this step:
+1. build all admin pages with realistic layouts
+2. connect them to current data/models where possible
+3. add charts/cards/tables/filters
+4. add strong French labels first
+5. add Arabic support structure
+6. make the admin panel feel premium and serious
+7. avoid generic placeholder dashboards

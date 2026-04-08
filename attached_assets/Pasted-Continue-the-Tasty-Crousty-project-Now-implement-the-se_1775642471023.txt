@@ -1,0 +1,148 @@
+Continue the Tasty Crousty project.
+
+Now implement the secure delivery and operational trust layer of the platform.
+
+Focus on:
+- QR code delivery confirmation
+- payment status flow
+- notifications system
+- fraud flag foundations
+- dispute-ready tracking
+
+==================================================
+GOAL OF THIS STEP
+==================================================
+
+Build the trust and completion layer of the platform:
+- secure proof of delivery
+- post-delivery validation
+- payment tracking
+- notification architecture
+- fraud detection foundations
+
+==================================================
+QR DELIVERY FLOW
+==================================================
+
+Implement secure QR-based delivery confirmation.
+
+Requirements:
+- each active order can have a QR delivery token
+- customer can view QR code on order page
+- driver has a delivery confirmation action
+- simulate or build QR scan verification flow
+- once QR is verified, mark order as DELIVERED
+- create delivery confirmation record
+- log timestamp, actor, and verification status
+
+Prepare for:
+- invalid QR
+- expired QR
+- already used QR
+- manual fallback admin override
+
+==================================================
+PAYMENT FLOW
+==================================================
+
+Implement payment architecture for:
+- cash on delivery
+- online payment placeholder
+- payment status tracking
+- refund state tracking
+
+Use statuses such as:
+- pending
+- authorized
+- paid
+- failed
+- refunded
+- cash_on_delivery
+
+Link payment behavior to delivery logic.
+Example:
+- COD may be finalized after successful delivery
+- online payment can remain placeholder-ready for future gateway integration
+
+==================================================
+NOTIFICATIONS
+==================================================
+
+Implement notification foundation for:
+- customer
+- restaurant
+- driver
+- admin
+
+Notification channels architecture:
+- in-app now
+- email placeholder
+- SMS placeholder
+- push placeholder
+
+Trigger notifications for:
+- order placed
+- dispatch started
+- driver assigned
+- confirmation required
+- correction needed
+- order confirmed
+- preparation started
+- ready for pickup
+- picked up
+- on the way
+- arriving soon
+- delivered
+- cancelled
+- failed
+
+Create:
+- notification model usage
+- unread/read states
+- simple notification center UI where relevant
+
+==================================================
+FRAUD FOUNDATIONS
+==================================================
+
+Implement basic fraud/risk logic:
+- repeated customer cancellations
+- repeated unreachable customer records
+- failed confirmation patterns
+- suspicious delivery disputes
+- suspicious driver behavior
+- suspicious restaurant early-preparation violations
+
+Create:
+- fraud flag records
+- severity levels
+- target entity types
+- visibility in admin
+
+Build a simple customer risk score:
+- low
+- medium
+- high
+
+==================================================
+DISPUTE-READY TRACKING
+==================================================
+
+Prepare the system for disputes by ensuring:
+- timeline history is strong
+- delivery confirmation is stored
+- payment state is stored
+- fraud flags are visible
+- support tickets can reference orders
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+In this step:
+1. implement QR delivery flow
+2. implement payment status structure
+3. implement notifications foundation and UI
+4. implement fraud flag foundation
+5. connect these systems to order workflow
+6. keep code clean and modular
