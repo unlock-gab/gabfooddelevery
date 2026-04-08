@@ -1,23 +1,23 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useListRestaurants } from "@workspace/api-client-react";
 import { Search, Star, Clock, Utensils, SlidersHorizontal } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const CATEGORY_FILTERS = [
-  { key: "all", label: "Tous", emoji: "" },
-  { key: "Burgers", label: "Burgers", emoji: "🍔" },
-  { key: "Pizza", label: "Pizza", emoji: "🍕" },
-  { key: "Sandwichs", label: "Sandwichs", emoji: "🥙" },
-  { key: "Tajine", label: "Tajine", emoji: "🍲" },
-  { key: "Couscous", label: "Couscous", emoji: "🥘" },
-  { key: "Grillades", label: "Grillades", emoji: "🥩" },
-  { key: "Sushi", label: "Sushi", emoji: "🍣" },
-  { key: "Desserts", label: "Desserts", emoji: "🍰" },
+  { key: "all",            label: "Tous",           emoji: "🍽️" },
+  { key: "Fast Food",      label: "Fast Food",      emoji: "🍔" },
+  { key: "Pizza",          label: "Pizza",           emoji: "🍕" },
+  { key: "Méditerranéen",  label: "Méditerranéen",  emoji: "🥗" },
+  { key: "Algérien",       label: "Algérien",        emoji: "🥘" },
+  { key: "Grillades",      label: "Grillades",       emoji: "🥩" },
+  { key: "Sandwichs",      label: "Sandwichs",       emoji: "🥙" },
+  { key: "Sushi",          label: "Sushi",           emoji: "🍣" },
+  { key: "Desserts",       label: "Desserts",        emoji: "🍰" },
 ];
 
 function RestaurantCard({ r }: { r: any }) {
@@ -100,13 +100,24 @@ function SkeletonCard() {
 }
 
 export default function Restaurants() {
+  const searchString = useSearch();
+  const params = new URLSearchParams(searchString);
+  const catParam = params.get("cat") ?? "all";
+
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeCategory, setActiveCategory] = useState(catParam);
   const [showOpenOnly, setShowOpenOnly] = useState(false);
 
-  const { data: restaurants, isLoading } = useListRestaurants(undefined, {
-    query: { refetchInterval: 60000 },
-  });
+  // Sync category from URL on first mount
+  useEffect(() => {
+    if (catParam !== "all") setActiveCategory(catParam);
+  }, [catParam]);
+
+  // Only show approved restaurants to customers
+  const { data: restaurants, isLoading, isError } = useListRestaurants(
+    { status: "approved" } as any,
+    { query: { refetchInterval: 60000 } }
+  );
 
   const filtered = ((restaurants as any[]) ?? []).filter((r: any) => {
     const matchesSearch =
@@ -177,6 +188,14 @@ export default function Restaurants() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {[...Array(8)].map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : isError ? (
+          <div className="text-center py-28">
+            <div className="w-20 h-20 rounded-3xl bg-red-50 flex items-center justify-center mx-auto mb-5">
+              <Utensils className="w-10 h-10 text-red-300" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Impossible de charger les restaurants</h2>
+            <p className="text-muted-foreground mb-5 text-sm">Vérifiez votre connexion et réessayez.</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-28">

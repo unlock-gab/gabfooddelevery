@@ -46,8 +46,12 @@ export default function Checkout() {
       toast({ title: "Panier vide", variant: "destructive" });
       return;
     }
-    if (!form.deliveryAddress.trim()) {
-      toast({ title: "Adresse de livraison requise", description: "Veuillez saisir votre adresse.", variant: "destructive" });
+    if (!form.deliveryAddress.trim() || form.deliveryAddress.trim().length < 10) {
+      toast({ title: "Adresse invalide", description: "Veuillez saisir une adresse complète (rue, quartier, ville).", variant: "destructive" });
+      return;
+    }
+    if (!form.deliveryPhone.trim()) {
+      toast({ title: "Numéro de téléphone requis", description: "Le livreur doit pouvoir vous contacter à la livraison.", variant: "destructive" });
       return;
     }
 

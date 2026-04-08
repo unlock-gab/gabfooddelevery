@@ -11,14 +11,14 @@ import {
 } from "lucide-react";
 
 const CATEGORIES = [
-  { label: "Burgers", emoji: "🍔" },
-  { label: "Pizza", emoji: "🍕" },
-  { label: "Sushi", emoji: "🍣" },
-  { label: "Sandwichs", emoji: "🥙" },
-  { label: "Tajine", emoji: "🍲" },
-  { label: "Couscous", emoji: "🥘" },
-  { label: "Grillades", emoji: "🥩" },
-  { label: "Desserts", emoji: "🍰" },
+  { label: "Fast Food",     emoji: "🍔" },
+  { label: "Pizza",         emoji: "🍕" },
+  { label: "Méditerranéen", emoji: "🥗" },
+  { label: "Algérien",      emoji: "🥘" },
+  { label: "Grillades",     emoji: "🥩" },
+  { label: "Sandwichs",     emoji: "🥙" },
+  { label: "Sushi",         emoji: "🍣" },
+  { label: "Desserts",      emoji: "🍰" },
 ];
 
 function HowItWorksStep({ num, icon: Icon, title, desc }: { num: number; icon: any; title: string; desc: string }) {
@@ -89,7 +89,8 @@ function FeaturedRestaurantCard({ restaurant }: { restaurant: any }) {
 }
 
 export default function Home() {
-  const { data: restaurants } = useListRestaurants();
+  // Only show approved restaurants on the homepage
+  const { data: restaurants } = useListRestaurants({ status: "approved" } as any);
   const featured = (restaurants as any[])?.slice(0, 4) ?? [];
 
   return (
@@ -137,9 +138,9 @@ export default function Home() {
 
             <div className="flex gap-8 pt-6 border-t border-border/40">
               {[
-                { value: "2+", label: "Restaurants partenaires" },
+                { value: "6+", label: "Restaurants partenaires" },
                 { value: "100%", label: "Livraisons synchronisées" },
-                { value: "Alger", label: "Disponible maintenant" },
+                { value: "3 villes", label: "Disponible maintenant" },
               ].map((stat) => (
                 <div key={stat.label}>
                   <div className="text-2xl font-extrabold text-primary tabular-nums">{stat.value}</div>

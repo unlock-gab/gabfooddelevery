@@ -1,106 +1,196 @@
-# Tasty Crousty — Full-Stack Food Delivery Platform
+# Tasty Crousty — Full-Stack Food Delivery Platform (Algeria)
 
 ## Overview
 
 Premium food delivery SaaS for Algeria. French-first UI with Arabic RTL support (Cairo/Inter fonts). Four distinct user interfaces: Customer website, Restaurant dashboard, Driver dashboard (mobile-first), and Admin panel. Currency displayed as "DA" (Algerian Dinar) throughout all interfaces.
 
-## Step 7 UI Polish (Completed)
-
-Premium design system applied across all interfaces:
-- **CSS**: Custom properties with enhanced shadows, `chip`/`chip-active`/`chip-inactive` utilities, `card-hover`, `gradient-text`, `fade-in-up-N`, `scrollbar-none`, `status-pulse`, `glass`, `tabular-nums` — Inter + Cairo fonts via Google Fonts
-- **Home**: Gradient hero with ambient blobs, PrepLock trust badge, category chips, featured restaurants grid, How It Works with live-style status mockup, value props, partner CTAs, dark footer
-- **Navbar**: Active underline indicator per route, UtensilsCrossed icon logo, glass morphism, mobile hamburger
-- **Login**: Split-panel (dark branding left + form right), demo quick-fill buttons for all 4 roles
-- **Register**: Split-panel with dynamic role description that changes per selected tab
-- **Restaurants**: Sticky search+filter bar, category chip filters, restaurant cards with gradient overlay + rating badge
-- **RestaurantDetail**: Currency fixed to DA, smooth card hover
-- **Checkout**: Premium form cards with SectionTitle icons, PrepLock info box, DA totals, security footer
-- **Orders**: Animated StatusPill with status-aware colors and dot pulse, improved empty states
-- **OrderTracking**: Redesigned timeline with icon-in-dot design, green completed steps, 17-status coverage, DA totals
-- **Currency**: All "€" replaced with "DA" across customer, restaurant, driver, and admin interfaces
-
-## Critical Business Rule
-
-Restaurants CANNOT start preparing until a driver is assigned AND the customer confirms the order. Enforced server-side in `/api/orders/:id/start-preparing` (returns 400 unless status === `confirmed_for_preparation`) and visually via `PrepLockIndicator` component.
-
-## Stack
-
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **Frontend**: React + Vite + Tailwind CSS + shadcn/ui + wouter (routing)
-- **API framework**: Express 5 (port 8080)
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec in `lib/api-spec`)
-- **Build**: esbuild (API server bundle)
-
-## Architecture
+## Project Structure
 
 ```
 artifacts/
-  api-server/      — Express API (port 8080)
-  tasty-crousty/   — React frontend (Vite, proxies /api → localhost:8080)
-  mockup-sandbox/  — Design sandbox (port 8081)
+  api-server/       Express API (port 8080)
+    src/
+      routes/       REST endpoints (auth, restaurants, menus, orders, dispatch, admin, notifications, ...)
+      lib/          State machine, dispatch engine, auth, notifications, logger
+      seed.ts       Comprehensive demo data seed (build → dist/seed.mjs)
+  tasty-crousty/    React + Vite frontend
+    src/
+      pages/
+        Home.tsx                  Landing page
+        auth/                     Login, Register (split-panel design)
+        customer/                 Restaurants, RestaurantDetail, Checkout, Orders, OrderTracking
+        restaurant/               Restaurant Dashboard
+        driver/                   Driver Dashboard (mobile-first)
+        admin/                    Admin Dashboard + 11 sections
+      components/
+        ui/                       Shared UI components (NotificationBell, MissionCard, OrderTimeline, etc.)
+        layout/                   Navbar, RoleSidebar
+      lib/                        Auth context, type definitions
+  mockup-sandbox/   Design prototyping sandbox
 lib/
-  db/              — Drizzle schema + migrations + PostgreSQL client
-  api-spec/        — OpenAPI spec (source of truth for API)
-  api-client-react/ — Orval-generated React Query hooks (NO /api prefix in setBaseUrl!)
-  api-zod/         — Zod validators from OpenAPI spec
+  db/               Drizzle schema + PostgreSQL client
+    src/schema/     Table definitions (12 schemas: users, cities, zones, restaurants, menus, orders, dispatch, profiles, ratings, notifications, fraud, payments)
+  api-spec/         OpenAPI spec (source of truth for API client generation)
+  api-client-react/ Orval-generated React Query hooks
+  api-zod/          Zod validators from OpenAPI spec
 ```
 
-## Important: API Client URL Configuration
+## Roles & Dashboards
 
-The generated API client (Orval) already includes `/api` in every URL path (e.g., `/api/restaurants`). The Vite proxy routes `/api` → `localhost:8080`. Therefore `setBaseUrl` MUST be set to `null` (not `/api`) in App.tsx to avoid double `/api/api/` paths.
+| Role       | Login URL           | Dashboard URL | Description |
+|------------|---------------------|---------------|-------------|
+| Customer   | /auth/login         | /restaurants  | Browse, order, track deliveries |
+| Restaurant | /auth/login         | /dashboard    | Manage orders, PrepLock control |
+| Driver     | /auth/login         | /driver       | Accept missions, confirm delivery |
+| Admin      | /auth/login         | /admin        | Full platform oversight |
+
+## Demo Accounts (Seed v4)
+
+| Role       | Email                      | Password     | Notes |
+|------------|---------------------------|--------------|-------|
+| Admin      | admin@tastycrousty.dz     | admin123456  | Full admin access |
+| Restaurant | restaurant@tc.dz           | resto123     | Owns 2 Algiers restaurants |
+| Driver     | driver@tc.dz               | driver123    | Mohamed Meziane, 312 deliveries |
+| Customer   | customer@tc.dz             | client123    | Yasmine Boumediene, 14 orders |
+
+Additional accounts (same passwords): driver2@tc.dz → driver5@tc.dz, customer2@tc.dz → customer6@tc.dz, resto2@tc.dz, resto3@tc.dz
+
+## Setup
+
+```bash
+# Install dependencies
+pnpm install
+
+# Push DB schema (first time)
+pnpm --filter @workspace/db run push
+
+# Build API server
+pnpm --filter @workspace/api-server run build
+
+# Seed demo data
+pnpm --filter @workspace/api-server run seed
+
+# Start all services (dev)
+pnpm run dev
+```
+
+## Seed Usage
+
+The seed script is idempotent — it checks a version key and skips if already at the current version.
+
+```bash
+# Build first, then seed
+pnpm --filter @workspace/api-server run build
+pnpm --filter @workspace/api-server run seed
+```
+
+To force a fresh reseed, change `SEED_VERSION` in `artifacts/api-server/src/seed.ts` to a new value (e.g. "v5"), rebuild and reseed.
+
+Seed creates:
+- 3 cities (Alger, Oran, Constantine), 8 zones
+- 6 restaurants across categories (Méditerranéen, Fast Food, Pizza, Algérien, Grillades)
+- 15 users (1 admin, 3 restaurant owners, 5 drivers, 6 customers)
+- 32+ menu items with realistic Algerian prices (in DA)
+- 17 orders across all 17 statuses
+- 11 ratings, 12 notifications, 4 fraud flags, platform settings
+
+## Critical Business Rule — PrepLock™
+
+Restaurants CANNOT start preparing until BOTH:
+1. A driver is assigned (dispatched and accepted)
+2. The customer confirms the delivery details with the driver
+
+Enforced server-side in `POST /api/orders/:id/start-preparing` (returns 400 unless status === `confirmed_for_preparation`). Visualized by the `PrepLockIndicator` component in the restaurant dashboard.
 
 ## Order State Machine (17 statuses)
 
-`draft` → `pending_dispatch` → `dispatching_driver` → `driver_assigned` → `awaiting_customer_confirmation` → [`confirmed_for_preparation` | `needs_update` | `confirmation_failed`] → `preparing` → `ready_for_pickup` → `picked_up` → `on_the_way` → `arriving_soon` → `delivered` (+ `cancelled` / `failed` / `refunded`)
+```
+draft
+  → pending_dispatch           (order placed, looking for driver)
+  → dispatching_driver         (driver notification sent)
+  → driver_assigned            (driver accepted)
+  → awaiting_customer_confirmation  (driver calls customer)
+  → needs_update               (customer requests address correction)
+  → confirmation_failed        (customer unreachable)
+  → confirmed_for_preparation  ← PrepLock™ unlocks here
+  → preparing                  (restaurant starts cooking)
+  → ready_for_pickup           (food ready)
+  → picked_up                  (driver collected)
+  → on_the_way                 (en route)
+  → arriving_soon              (< 5 min away)
+  → delivered                  (QR scan confirmed)
+  → cancelled / failed / refunded
+```
 
-## Demo Accounts (Seeded)
+## Stack
 
-| Role       | Email                      | Password     |
-|------------|---------------------------|--------------|
-| Admin      | admin@tastycrousty.dz     | admin123456  |
-| Restaurant | restaurant@tc.dz           | resto123     |
-| Driver     | driver@tc.dz               | driver123    |
-| Customer   | customer@tc.dz             | client123    |
+- **Monorepo**: pnpm workspaces
+- **Node.js**: v24
+- **Frontend**: React 18, Vite, Tailwind CSS, shadcn/ui, wouter (routing)
+- **Backend**: Express 5, TypeScript, esbuild
+- **Database**: PostgreSQL, Drizzle ORM (`drizzle-orm` catalog version)
+- **Validation**: Zod (`zod/v4`), drizzle-zod
+- **API codegen**: Orval (OpenAPI → React Query hooks)
+- **Auth**: JWT in localStorage (`tc_token`)
+- **Fonts**: Inter (UI), Cairo (Arabic/RTL)
 
 ## Routes
 
-| Path            | Component            | Notes |
-|-----------------|----------------------|-------|
-| /               | Home                 | French hero page |
-| /restaurants    | Restaurants          | List with search |
-| /restaurants/:id | RestaurantDetail    | Menu + add to cart |
-| /auth/login     | Login                | Also /connexion alias |
-| /auth/register  | Register             | Also /inscription alias |
-| /checkout       | Checkout             | Cart → order placement |
-| /orders         | Orders               | Customer order history |
-| /orders/:id     | OrderTracking        | Real-time order tracking + QR |
-| /admin          | AdminDashboard       | Admin role required |
-| /dashboard      | RestaurantDashboard  | Restaurant role required (also /restaurant) |
-| /driver         | DriverDashboard      | Driver role required (also /livreur) |
+| Path                  | Component            | Notes |
+|-----------------------|----------------------|-------|
+| /                     | Home                 | Gradient hero, PrepLock badge, category chips |
+| /restaurants          | Restaurants          | Filter by category/search, approved only |
+| /restaurants/:id      | RestaurantDetail     | Menu + cart, real-time stock |
+| /checkout             | Checkout             | PrepLock info, DA totals, validation |
+| /orders               | Orders               | Live status, needs_update alert |
+| /orders/:id           | OrderTracking        | 17-step timeline, QR delivery |
+| /auth/login           | Login                | Also /connexion — demo quick-fill |
+| /auth/register        | Register             | Also /inscription — role tabs |
+| /dashboard            | RestaurantDashboard  | Also /restaurant |
+| /driver               | DriverDashboard      | Also /livreur |
+| /admin                | AdminDashboard       | 11 sections: Overview, Orders, Dispatch, Confirmation, Restaurants, Drivers, Customers, Zones, Payments, Fraud, Settings |
 
-## Auth
+## Important: API Client URL Configuration
 
-JWT stored in localStorage as `tc_token`. User object stored as `tc_token` (JSON). Token getter registered with `setAuthTokenGetter`. Role-based redirect after login.
+The generated Orval client already includes `/api` prefix in every URL path.
+`setBaseUrl` in `App.tsx` must be `null` (or `import.meta.env.VITE_API_URL ?? null`) to avoid double `/api/api/` prefix.
+The Vite dev server proxies `/api` → `localhost:8080`.
 
 ## Key Commands
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `node --import tsx/esm artifacts/api-server/src/seed.ts` — seed demo data (use seed.mjs instead)
-- To seed DB: `NODE_PATH=/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules node artifacts/api-server/src/seed.mjs`
-
-## Seeding the Database
-
-Use `artifacts/api-server/src/seed.mjs` with explicit NODE_PATH pointing to the pg module:
-```
-NODE_PATH=/home/runner/workspace/node_modules/.pnpm/pg@8.20.0/node_modules node artifacts/api-server/src/seed.mjs
+```bash
+pnpm run typecheck                                         # TypeScript check across all packages
+pnpm --filter @workspace/api-spec run codegen             # Regenerate API hooks from OpenAPI spec
+pnpm --filter @workspace/db run push                      # Push DB schema changes (dev)
+pnpm --filter @workspace/api-server run build             # Build API server + seed script
+pnpm --filter @workspace/api-server run seed              # Seed demo data
 ```
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+## CSS Utilities (custom, defined in index.css)
+
+```css
+.chip / .chip-active / .chip-inactive   /* Filter chip buttons */
+.card-hover                             /* Card with lift + shadow on hover */
+.gradient-text                          /* Amber-to-orange gradient text */
+.fade-in-up-N (1-4)                    /* Staggered entrance animations */
+.scrollbar-none                         /* Hide scrollbar (cross-browser) */
+.status-pulse                           /* Amber pulsing dot */
+.glass                                  /* Frosted glass effect */
+.tabular-nums                           /* Monospaced numbers */
+```
+
+## NotificationBell (named export)
+
+```tsx
+import { NotificationBell } from "@/components/ui/NotificationBell";
+// Always named export — NOT default export
+```
+
+## Missing Orval hooks (use direct fetch/useMutation)
+
+The following are not in the generated client and use direct `fetch()`:
+- `useDispatchOrder`
+- `useRetryAllDispatch`
+- `useOverrideDelivery`
+
+Notification API: `GET /api/notifications` → `{notifications, unreadCount}`, `POST /api/notifications/:id/read`, `POST /api/notifications/read-all`
