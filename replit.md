@@ -26,6 +26,17 @@ artifacts/
         ui/                       Shared UI components (NotificationBell, MissionCard, OrderTimeline, etc.)
         layout/                   Navbar, RoleSidebar
       lib/                        Auth context, type definitions
+  mobile/           Expo React Native app (customer + driver)
+    app/
+      index.tsx                   Auth redirect gate
+      (auth)/                     Login, Register screens
+      (tabs)/                     index (home/missions), orders, account tabs
+      restaurant/[id].tsx         Menu browsing + cart
+      checkout.tsx                Order placement
+      order/[id].tsx              Real-time order tracking with timeline
+    context/                      AuthContext (JWT + AsyncStorage), CartContext
+    utils/format.ts               formatDA(), formatDate(), getStatusLabel()
+    constants/colors.ts           Amber brand tokens (light + dark)
   mockup-sandbox/   Design prototyping sandbox
 lib/
   db/               Drizzle schema + PostgreSQL client
