@@ -130,9 +130,9 @@ export async function dispatchOrder(orderId: number): Promise<{ dispatched: bool
   for (const driver of toNotify) {
     await createNotification({
       userId: driver.userId,
-      type: "mission_available",
-      title: "Nouvelle mission disponible",
-      message: `Une nouvelle commande est disponible. Score: ${Math.round(driver.score)}pts.`,
+      type: "mission_request",
+      title: "Nouvelle mission disponible 🚴",
+      message: `Une nouvelle commande vous attend. Score: ${Math.round(driver.score)}pts. Acceptez rapidement !`,
       relatedOrderId: orderId,
     });
 

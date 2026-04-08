@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { ordersTable, dispatchAttemptsTable, driverProfilesTable, usersTable, orderStatusHistoryTable, deliveryConfirmationsTable, customerProfilesTable, restaurantsTable, fraudFlagsTable, notificationsTable } from "@workspace/db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or, inArray } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
 import { createNotification } from "../lib/notifications";
 import { lockDriverAssignment, retryPendingDispatch } from "../lib/dispatch-engine";
@@ -75,11 +75,32 @@ router.get("/driver/missions/available", authenticate, requireRole("driver"), as
     .where(eq(driverProfilesTable.userId, user.id));
   const driverCityId = driverProfile?.cityId ?? null;
 
-  // Build conditions: pending_dispatch + same city as driver (if driver has a city)
-  const conditions: any[] = [eq(ordersTable.status, "pending_dispatch")];
+  // Get orders where this driver has a pending dispatch attempt (was specifically notified)
+  const pendingAttempts = await db.select({ orderId: dispatchAttemptsTable.orderId })
+    .from(dispatchAttemptsTable)
+    .where(and(
+      eq(dispatchAttemptsTable.driverId, user.id),
+      eq(dispatchAttemptsTable.result, "pending" as any),
+    ));
+  const pendingAttemptOrderIds = pendingAttempts.map(a => a.orderId).filter((id): id is number => id !== null);
+
+  // Build two conditions:
+  // 1. pending_dispatch orders filtered by driver's city
+  // 2. dispatching_driver orders where this driver was specifically notified
+  const pendingDispatchConditions: any[] = [eq(ordersTable.status, "pending_dispatch")];
   if (driverCityId) {
-    conditions.push(eq(restaurantsTable.cityId, driverCityId));
+    pendingDispatchConditions.push(eq(restaurantsTable.cityId, driverCityId));
   }
+
+  const whereClause = pendingAttemptOrderIds.length > 0
+    ? or(
+        and(...pendingDispatchConditions),
+        and(
+          eq(ordersTable.status, "dispatching_driver"),
+          inArray(ordersTable.id, pendingAttemptOrderIds),
+        ),
+      )
+    : and(...pendingDispatchConditions);
 
   const orders = await db.select({
     order: ordersTable,
@@ -88,7 +109,7 @@ router.get("/driver/missions/available", authenticate, requireRole("driver"), as
   })
     .from(ordersTable)
     .leftJoin(restaurantsTable, eq(ordersTable.restaurantId, restaurantsTable.id))
-    .where(and(...conditions))
+    .where(whereClause)
     .orderBy(ordersTable.createdAt)
     .limit(10);
 
