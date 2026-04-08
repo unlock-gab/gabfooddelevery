@@ -97,7 +97,7 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
   // Available missions: orders in dispatch that specifically notified this driver
   const { data: availableMissions = [], isLoading: loadingAvailable, refetch: refetchAvailable } = useGetAvailableMissions({
     query: {
-      refetchInterval: isOnline ? 8000 : 0,
+      refetchInterval: isOnline ? 2000 : 0,
       enabled: isOnline === true,
     },
   });
@@ -105,7 +105,7 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
   // Active missions: orders already assigned to this driver
   const { data: activeData, isLoading: loadingActive, refetch: refetchActive } = useListOrders(
     {} as any,
-    { query: { refetchInterval: isOnline ? 10000 : 0, enabled: isOnline === true } }
+    { query: { refetchInterval: isOnline ? 2000 : 0, enabled: isOnline === true } }
   );
   const activeOrders = ((activeData as any)?.orders ?? []).filter((o: any) =>
     ["driver_assigned", "awaiting_customer_confirmation", "confirmed_for_preparation",
