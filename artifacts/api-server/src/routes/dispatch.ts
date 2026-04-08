@@ -214,6 +214,19 @@ router.post("/driver/on-the-way/:orderId", authenticate, requireRole("driver"), 
   const orderId = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
   const [updated] = await db.update(ordersTable).set({ status: "on_the_way" }).where(eq(ordersTable.id, orderId)).returning();
   await addStatusHistory(orderId, "on_the_way", "En route", `driver:${user.id}`);
+
+  // Notify customer
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+  if (order) {
+    await createNotification({
+      userId: order.customerId,
+      type: "on_the_way",
+      title: "Votre commande est en route",
+      message: `Votre livreur est en route avec la commande ${order.orderNumber}.`,
+      relatedOrderId: orderId,
+    });
+  }
+
   res.json({ ...updated, subtotal: Number(updated.subtotal), deliveryFee: Number(updated.deliveryFee), total: Number(updated.total), restaurantName: "", driverName: user.name, createdAt: updated.createdAt.toISOString(), updatedAt: updated.updatedAt.toISOString() });
 });
 

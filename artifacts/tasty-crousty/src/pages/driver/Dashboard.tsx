@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -17,8 +18,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Truck, MapPin, Phone, CheckCircle, RefreshCw, Navigation, Package,
   Clock, Star, TrendingUp, Wifi, WifiOff, AlertCircle, ChefHat,
-  ArrowRight, UserCheck, XCircle, Edit3, History
+  ArrowRight, UserCheck, XCircle, Edit3, History, QrCode, ScanLine
 } from "lucide-react";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 
 // All active delivery statuses in order
 const DELIVERY_STEPS = [
@@ -78,6 +80,9 @@ export default function DriverDashboard() {
   const { toast } = useToast();
   const [isOnline, setIsOnline] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [qrScanMode, setQrScanMode] = useState(false);
+  const [qrInput, setQrInput] = useState("");
+  const [qrVerifying, setQrVerifying] = useState(false);
 
   if (!user || user.role !== "driver") {
     setLocation("/auth/login");
@@ -113,6 +118,41 @@ export default function DriverDashboard() {
   const refetchAll = () => {
     refetchMissions();
     refetchOrders();
+  };
+
+  const verifyQrDelivery = async (orderId: number) => {
+    if (!qrInput.trim()) {
+      toast({ title: "Entrez le code QR du client", variant: "destructive" } as any);
+      return;
+    }
+    setQrVerifying(true);
+    try {
+      const token = localStorage.getItem("tc_token");
+      const res = await fetch(`/api/orders/${orderId}/verify-qr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ token: qrInput.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast({ title: "✅ Livraison confirmée par QR !", description: "Commande marquée comme livrée." });
+        setQrScanMode(false);
+        setQrInput("");
+        setTimeout(refetchAll, 500);
+      } else {
+        const msg: Record<number, string> = {
+          401: "Code QR invalide. Vérifiez avec le client.",
+          409: "Ce QR a déjà été utilisé.",
+          410: "QR code expiré.",
+          400: "La commande n'est pas encore livrable.",
+        };
+        toast({ title: msg[res.status] ?? data.error ?? "Erreur QR", variant: "destructive" } as any);
+      }
+    } catch {
+      toast({ title: "Erreur réseau", variant: "destructive" } as any);
+    } finally {
+      setQrVerifying(false);
+    }
   };
 
   const handleToggleOnline = () => {
@@ -217,6 +257,7 @@ export default function DriverDashboard() {
               />
               {isOnline ? <Wifi className="w-4 h-4 text-green-600" /> : <WifiOff className="w-4 h-4 text-gray-400" />}
             </div>
+            <NotificationBell />
             <Button variant="ghost" size="sm" className="text-xs px-2" onClick={() => { logout(); setLocation("/"); }}>
               Sortir
             </Button>
@@ -431,27 +472,116 @@ export default function DriverDashboard() {
                     <MapPin className="w-4 h-4 mr-2" />
                     Je suis presque arrivé
                   </Button>
-                  <Button
-                    className="w-full h-12 text-sm font-semibold bg-green-600 hover:bg-green-700"
-                    onClick={() => handleAction("deliver")}
-                    disabled={deliver.isPending}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Livraison effectuée !
-                  </Button>
+                  {/* QR Delivery Panel */}
+                  {!qrScanMode ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        className="h-12 text-xs font-semibold bg-green-600 hover:bg-green-700"
+                        onClick={() => setQrScanMode(true)}
+                      >
+                        <QrCode className="w-4 h-4 mr-1" />
+                        Scanner QR client
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-12 text-xs font-semibold"
+                        onClick={() => handleAction("deliver")}
+                        disabled={deliver.isPending}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Sans QR
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-green-50 rounded-xl border border-green-200 space-y-2">
+                      <p className="text-xs font-semibold text-green-800 flex items-center gap-1">
+                        <ScanLine className="w-3.5 h-3.5" /> Scanner le QR code client
+                      </p>
+                      <p className="text-xs text-green-700">Demandez au client d'afficher son QR code et entrez le token ci-dessous :</p>
+                      <Input
+                        className="text-xs h-8 font-mono"
+                        placeholder="Collez ou entrez le token QR..."
+                        value={qrInput}
+                        onChange={e => setQrInput(e.target.value)}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs bg-green-600 hover:bg-green-700"
+                          onClick={() => verifyQrDelivery(activeDelivery.id)}
+                          disabled={qrVerifying || !qrInput.trim()}
+                        >
+                          {qrVerifying ? "Vérification…" : "Confirmer QR"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() => { setQrScanMode(false); setQrInput(""); }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* STEP: Arriving soon → deliver */}
               {activeDelivery.status === "arriving_soon" && (
-                <Button
-                  className="w-full h-12 text-sm font-semibold bg-green-600 hover:bg-green-700"
-                  onClick={() => handleAction("deliver")}
-                  disabled={deliver.isPending}
-                >
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  Livraison effectuée !
-                </Button>
+                <div className="space-y-2">
+                  {!qrScanMode ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        className="h-12 text-xs font-semibold bg-green-600 hover:bg-green-700"
+                        onClick={() => setQrScanMode(true)}
+                      >
+                        <QrCode className="w-4 h-4 mr-1" />
+                        Scanner QR client
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-12 text-xs font-semibold"
+                        onClick={() => handleAction("deliver")}
+                        disabled={deliver.isPending}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-1" />
+                        Sans QR
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-green-50 rounded-xl border border-green-200 space-y-2">
+                      <p className="text-xs font-semibold text-green-800 flex items-center gap-1">
+                        <ScanLine className="w-3.5 h-3.5" /> Scanner le QR code client
+                      </p>
+                      <p className="text-xs text-green-700">Demandez au client d'afficher son QR code et entrez le token ci-dessous :</p>
+                      <Input
+                        className="text-xs h-8 font-mono"
+                        placeholder="Collez ou entrez le token QR..."
+                        value={qrInput}
+                        onChange={e => setQrInput(e.target.value)}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs bg-green-600 hover:bg-green-700"
+                          onClick={() => verifyQrDelivery(activeDelivery.id)}
+                          disabled={qrVerifying || !qrInput.trim()}
+                        >
+                          {qrVerifying ? "Vérification…" : "Confirmer QR"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 text-xs"
+                          onClick={() => { setQrScanMode(false); setQrInput(""); }}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Total */}

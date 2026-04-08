@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { ShoppingBag, Clock, TrendingUp, Star, ChefHat, CheckCircle, Package, ToggleLeft, ToggleRight, RefreshCw } from "lucide-react";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 
@@ -195,9 +196,12 @@ export default function RestaurantDashboard() {
               <h2 className="text-2xl font-bold">Tableau de bord</h2>
               <p className="text-sm text-muted-foreground">Gérez vos commandes en temps réel</p>
             </div>
-            <Button variant="outline" size="sm" onClick={refetchAll}>
-              <RefreshCw className="w-4 h-4 mr-1" /> Actualiser
-            </Button>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <Button variant="outline" size="sm" onClick={refetchAll}>
+                <RefreshCw className="w-4 h-4 mr-1" /> Actualiser
+              </Button>
+            </div>
           </div>
 
           {/* Stats */}

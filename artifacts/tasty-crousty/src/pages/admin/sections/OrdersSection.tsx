@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { Search, Eye, RefreshCw, XCircle, Radio, Clock, ChevronLeft, ChevronRight, MapPin, CreditCard, Truck } from "lucide-react";
+import { Search, Eye, RefreshCw, XCircle, Radio, Clock, ChevronLeft, ChevronRight, MapPin, CreditCard, Truck, CheckCircle2 } from "lucide-react";
 import { useListOrders, useGetOrder, useCancelOrder } from "@workspace/api-client-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,21 @@ function useRedispatchOrder() {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Dispatch failed");
+      return res.json();
+    },
+  });
+}
+
+function useOverrideDelivery() {
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: number; reason?: string }) => {
+      const token = localStorage.getItem("tc_token");
+      const res = await fetch(`/api/admin/orders/${orderId}/override-delivery`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) throw new Error("Override failed");
       return res.json();
     },
   });
@@ -99,6 +114,7 @@ export function OrdersSection() {
 
   const cancelOrder = useCancelOrder();
   const redispatch = useRedispatchOrder();
+  const overrideDelivery = useOverrideDelivery();
 
   const orders = isActive
     ? (data?.orders ?? []).filter(o => ACTIVE_STATUSES.includes(o.status))
@@ -363,6 +379,16 @@ export function OrdersSection() {
                   <Button size="sm" className="text-xs h-7 bg-blue-600 hover:bg-blue-700"
                     onClick={() => { handleRedispatch(orderDetail.id); setSelectedOrderId(null); }}>
                     <Radio className="w-3 h-3 mr-1" /> Redispatching
+                  </Button>
+                )}
+                {!["delivered", "cancelled", "failed"].includes(orderDetail.status) && (
+                  <Button size="sm" className="text-xs h-7 bg-green-600 hover:bg-green-700"
+                    disabled={overrideDelivery.isPending}
+                    onClick={() => overrideDelivery.mutate(
+                      { orderId: orderDetail.id, reason: "Livraison override par admin" },
+                      { onSuccess: () => { toast({ title: "Livraison confirmée" }); setSelectedOrderId(null); refetch(); qc.invalidateQueries(); } }
+                    )}>
+                    <CheckCircle2 className="w-3 h-3 mr-1" /> Marquer livrée
                   </Button>
                 )}
               </div>

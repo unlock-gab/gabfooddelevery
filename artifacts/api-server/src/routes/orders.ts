@@ -4,6 +4,7 @@ import {
   ordersTable, orderItemsTable, orderStatusHistoryTable, qrDeliveryTokensTable,
   restaurantsTable, usersTable, dispatchAttemptsTable, driverProfilesTable,
   customerProfilesTable, cartTable, cartItemsTable, paymentsTable, productsTable,
+  fraudFlagsTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, count } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
@@ -237,11 +238,38 @@ router.post("/orders/:orderId/cancel", authenticate, async (req, res): Promise<v
 
   const updated = await transitionOrder(id, "cancelled", reason ?? "Annulé par l'utilisateur", `user:${user.id}`);
 
-  // Update customer cancellation count
+    // Update customer cancellation count + auto-fraud flag
   if (user.role === "customer") {
-    await db.update(customerProfilesTable)
-      .set({ cancellationCount: sql`cancellation_count + 1` })
+    const [cp] = await db.select().from(customerProfilesTable)
       .where(eq(customerProfilesTable.userId, user.id));
+    const newCount = (cp?.cancellationCount ?? 0) + 1;
+    await db.update(customerProfilesTable)
+      .set({ cancellationCount: newCount })
+      .where(eq(customerProfilesTable.userId, user.id));
+
+    // Auto-create fraud flag if cancellation threshold exceeded
+    if (newCount >= 3) {
+      const severity = newCount >= 6 ? "high" : newCount >= 4 ? "medium" : "low";
+      await db.insert(fraudFlagsTable).values({
+        userId: user.id,
+        type: "repeated_cancellations",
+        severity: severity as any,
+        description: `Client a annulé ${newCount} commandes. Comportement suspect détecté.`,
+        relatedOrderId: id,
+      }).onConflictDoNothing();
+    }
+  }
+
+  // Notify restaurant if order was in progress
+  const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, order.restaurantId));
+  if (restaurant) {
+    await createNotification({
+      userId: restaurant.userId,
+      type: "cancelled",
+      title: "Commande annulée",
+      message: `La commande ${order.orderNumber} a été annulée.`,
+      relatedOrderId: id,
+    });
   }
 
   res.json(formatOrder({ ...updated, restaurantName: "", driverName: null }));
@@ -367,6 +395,71 @@ router.get("/orders/:orderId/qr", authenticate, async (req, res): Promise<void> 
     return;
   }
   res.json({ token: qr.token, orderId: id, expiresAt: qr.expiresAt?.toISOString() ?? null });
+});
+
+// Driver verifies delivery via QR token
+router.post("/orders/:orderId/verify-qr", authenticate, async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
+  const user = (req as any).user;
+  const { token } = req.body;
+
+  if (!token) { res.status(400).json({ error: "token required" }); return; }
+
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+  if (!order) { res.status(404).json({ error: "Order not found" }); return; }
+
+  const deliverableStatuses = ["on_the_way", "arriving_soon", "picked_up", "driver_at_restaurant"];
+  if (!deliverableStatuses.includes(order.status)) {
+    res.status(400).json({ error: "Order is not in a deliverable state", status: order.status }); return;
+  }
+
+  const [qr] = await db.select().from(qrDeliveryTokensTable)
+    .where(eq(qrDeliveryTokensTable.orderId, id));
+
+  if (!qr) { res.status(404).json({ error: "QR token not found for this order" }); return; }
+  if (qr.isUsed) { res.status(409).json({ error: "QR code has already been used" }); return; }
+  if (qr.expiresAt && new Date() > qr.expiresAt) {
+    res.status(410).json({ error: "QR code has expired" }); return;
+  }
+  if (qr.token !== token) { res.status(401).json({ error: "Invalid QR token" }); return; }
+
+  // Mark QR as used
+  await db.update(qrDeliveryTokensTable).set({ isUsed: true }).where(eq(qrDeliveryTokensTable.id, qr.id));
+
+  // Transition order to delivered
+  const [updated] = await db.update(ordersTable)
+    .set({ status: "delivered", paymentStatus: order.paymentMethod === "cash_on_delivery" ? "paid" : order.paymentStatus })
+    .where(eq(ordersTable.id, id))
+    .returning();
+  await addStatusHistory(id, "delivered", "Livré — QR code vérifié", `driver:${user.id}`);
+
+  // Update payment record if COD
+  if (order.paymentMethod === "cash_on_delivery") {
+    await db.update(paymentsTable).set({ status: "paid" }).where(eq(paymentsTable.orderId, id));
+  }
+
+  // Update driver stats
+  if (user.role === "driver") {
+    await db.update(driverProfilesTable)
+      .set({ totalDeliveries: sql`total_deliveries + 1` })
+      .where(eq(driverProfilesTable.userId, user.id));
+  }
+
+  // Notify customer
+  await createNotification({
+    userId: order.customerId,
+    type: "delivered",
+    title: "Commande livrée !",
+    message: `Votre commande ${order.orderNumber} a été livrée avec succès. Bon appétit !`,
+    relatedOrderId: id,
+  });
+
+  const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, order.restaurantId));
+  res.json({
+    success: true,
+    message: "Livraison confirmée par QR code",
+    order: formatOrder({ ...updated, restaurantName: restaurant?.name ?? "", driverName: user.name }),
+  });
 });
 
 export default router;

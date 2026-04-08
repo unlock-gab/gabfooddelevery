@@ -3,7 +3,9 @@ import { db } from "@workspace/db";
 import {
   usersTable, restaurantsTable, driverProfilesTable, customerProfilesTable,
   ordersTable, fraudFlagsTable, platformSettingsTable, paymentsTable, ratingsTable,
+  orderStatusHistoryTable, qrDeliveryTokensTable,
 } from "@workspace/db";
+import { createNotification } from "../lib/notifications";
 import { eq, and, count, sql, sum, avg, desc } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
 
@@ -144,6 +146,44 @@ router.post("/admin/fraud-flags/:flagId/resolve", authenticate, requireRole("adm
     resolvedAt: flag.resolvedAt?.toISOString() ?? null,
     createdAt: flag.createdAt.toISOString(),
   });
+});
+
+// ADMIN OVERRIDE DELIVERY
+router.post("/admin/orders/:orderId/override-delivery", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const orderId = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
+  const user = (req as any).user;
+  const { reason } = req.body;
+
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
+  if (!order) { res.status(404).json({ error: "Order not found" }); return; }
+
+  if (order.status === "delivered") { res.status(400).json({ error: "Order already delivered" }); return; }
+
+  const [updated] = await db.update(ordersTable)
+    .set({ status: "delivered", paymentStatus: order.paymentMethod === "cash_on_delivery" ? "paid" : order.paymentStatus })
+    .where(eq(ordersTable.id, orderId))
+    .returning();
+
+  await db.insert(orderStatusHistoryTable).values({
+    orderId,
+    status: "delivered" as any,
+    note: reason ?? "Livraison confirmée manuellement par l'admin",
+    createdBy: `admin:${user.id}`,
+  });
+
+  // Mark QR as used
+  await db.update(qrDeliveryTokensTable).set({ isUsed: true }).where(eq(qrDeliveryTokensTable.orderId, orderId));
+
+  // Notify customer
+  await createNotification({
+    userId: order.customerId,
+    type: "delivered",
+    title: "Commande livrée",
+    message: `Votre commande ${order.orderNumber} a été marquée comme livrée.`,
+    relatedOrderId: orderId,
+  });
+
+  res.json({ success: true, order: updated });
 });
 
 // SETTINGS

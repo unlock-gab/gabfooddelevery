@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/i18n";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
 import { CartBadge } from "@/components/ui/CartBadge";
+import { NotificationBell } from "@/components/ui/NotificationBell";
 import { Button } from "@/components/ui/button";
 
 export function Navbar() {
@@ -31,6 +32,7 @@ export function Navbar() {
         
         <div className="flex items-center space-x-4">
           <LanguageSwitcher />
+          {user?.role === "customer" && <NotificationBell />}
           <CartBadge />
           
           {user ? (

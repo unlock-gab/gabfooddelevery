@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable, addressesTable, notificationsTable, ratingsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { authenticate } from "../lib/auth";
 
 const router = Router();
@@ -97,37 +97,49 @@ router.delete("/addresses/:addressId", authenticate, async (req, res): Promise<v
 // NOTIFICATIONS
 router.get("/notifications", authenticate, async (req, res): Promise<void> => {
   const user = (req as any).user;
-  const { unreadOnly } = req.query;
+  const { unreadOnly, limit = 30 } = req.query;
 
-  let query = db.select().from(notificationsTable).where(eq(notificationsTable.userId, user.id));
-  const notifications = await db.select().from(notificationsTable)
+  const all = await db.select().from(notificationsTable)
     .where(eq(notificationsTable.userId, user.id))
     .orderBy(desc(notificationsTable.createdAt))
-    .limit(50);
+    .limit(Number(limit));
 
-  const result = unreadOnly === "true" ? notifications.filter(n => !n.isRead) : notifications;
-  res.json(result.map(n => ({
-    id: n.id,
-    userId: n.userId,
-    type: n.type,
-    title: n.title,
-    message: n.message,
-    isRead: n.isRead,
-    relatedOrderId: n.relatedOrderId ?? null,
-    createdAt: n.createdAt.toISOString(),
-  })));
+  const result = unreadOnly === "true" ? all.filter(n => !n.isRead) : all;
+  const unreadCount = all.filter(n => !n.isRead).length;
+
+  res.json({
+    notifications: result.map(n => ({
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      isRead: n.isRead,
+      relatedOrderId: n.relatedOrderId ?? null,
+      createdAt: n.createdAt.toISOString(),
+    })),
+    unreadCount,
+  });
 });
 
-router.post("/notifications/:notificationId/read", authenticate, async (req, res): Promise<void> => {
-  const id = parseInt(Array.isArray(req.params.notificationId) ? req.params.notificationId[0] : req.params.notificationId, 10);
-  await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.id, id));
-  res.json({ success: true, message: "Marked as read" });
+router.get("/notifications/count", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const all = await db.select().from(notificationsTable)
+    .where(eq(notificationsTable.userId, user.id));
+  res.json({ unreadCount: all.filter(n => !n.isRead).length });
 });
 
 router.post("/notifications/read-all", authenticate, async (req, res): Promise<void> => {
   const user = (req as any).user;
   await db.update(notificationsTable).set({ isRead: true }).where(eq(notificationsTable.userId, user.id));
-  res.json({ success: true, message: "All marked as read" });
+  res.json({ success: true });
+});
+
+router.post("/notifications/:notificationId/read", authenticate, async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.notificationId) ? req.params.notificationId[0] : req.params.notificationId, 10);
+  const user = (req as any).user;
+  await db.update(notificationsTable).set({ isRead: true })
+    .where(and(eq(notificationsTable.id, id), eq(notificationsTable.userId, user.id)));
+  res.json({ success: true });
 });
 
 // RATINGS

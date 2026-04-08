@@ -425,7 +425,7 @@ export default function OrderTracking() {
               <div className="text-4xl mb-3">🎉</div>
               <h2 className="text-xl font-bold text-green-800 mb-1">Livraison réussie !</h2>
               <p className="text-sm text-green-700 mb-4">Bon appétit ! Merci de votre confiance.</p>
-              {order.qrToken && <QRCodeDisplay token={order.qrToken} orderId={order.id} />}
+              {order.qrToken && <QRCodeDisplay token={order.qrToken} orderNumber={order.orderNumber} />}
             </CardContent>
           </Card>
         )}
@@ -479,7 +479,7 @@ export default function OrderTracking() {
               <Card>
                 <CardContent className="p-4">
                   <p className="text-xs text-center text-muted-foreground mb-3">Code QR de vérification</p>
-                  <QRCodeDisplay token={order.qrToken} orderId={order.id} />
+                  <QRCodeDisplay token={order.qrToken} orderNumber={order.orderNumber} />
                 </CardContent>
               </Card>
             )}
