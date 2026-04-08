@@ -279,6 +279,9 @@ export default function OrderTracking() {
     query: { refetchInterval: 15000 },
   });
 
+  const cancelMutation = useCancelOrder();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -318,8 +321,6 @@ export default function OrderTracking() {
   const needsCorrection = status === "needs_update";
   const msgCfg = STATUS_MESSAGES[status];
 
-  const cancelMutation = useCancelOrder();
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const cancellableStatuses = ["pending_dispatch", "dispatching_driver", "driver_assigned"];
   const canCancel = cancellableStatuses.includes(status);
 
