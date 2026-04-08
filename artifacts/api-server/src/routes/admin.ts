@@ -592,20 +592,23 @@ router.delete("/admin/restaurants/:restaurantId", authenticate, requireRole("adm
   const id = parseInt(Array.isArray(req.params.restaurantId) ? req.params.restaurantId[0] : req.params.restaurantId, 10);
   const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, id));
   if (!restaurant) { res.status(404).json({ error: "Not found" }); return; }
+  const uid = restaurant.userId;
   try {
-    // 1. Nullify restaurant_id on orders (raw SQL to avoid Drizzle auto-updatedAt issue)
+    // 1. Nullify restaurant_id on orders (column is nullable)
     await db.execute(sql`UPDATE orders SET restaurant_id = NULL WHERE restaurant_id = ${id}`);
     // 2. Delete ratings targeting this restaurant
-    await db.delete(ratingsTable).where(and(eq(ratingsTable.targetType, "restaurant"), eq(ratingsTable.targetId, id)));
-    // 3. Delete products in all menu categories, then the categories
-    const categories = await db.select().from(menuCategoriesTable).where(eq(menuCategoriesTable.restaurantId, id));
-    for (const cat of categories) {
-      await db.delete(productsTable).where(eq(productsTable.categoryId, cat.id));
-    }
-    await db.delete(menuCategoriesTable).where(eq(menuCategoriesTable.restaurantId, id));
-    // 4. Delete the restaurant and its user account
-    await db.delete(restaurantsTable).where(eq(restaurantsTable.id, id));
-    await db.delete(usersTable).where(eq(usersTable.id, restaurant.userId));
+    await db.execute(sql`DELETE FROM ratings WHERE target_type = 'restaurant' AND target_id = ${id}`);
+    // 3. Delete products then menu categories
+    await db.execute(sql`DELETE FROM products WHERE category_id IN (SELECT id FROM menu_categories WHERE restaurant_id = ${id})`);
+    await db.execute(sql`DELETE FROM menu_categories WHERE restaurant_id = ${id}`);
+    // 4. Delete the restaurant row itself
+    await db.execute(sql`DELETE FROM restaurants WHERE id = ${id}`);
+    // 5. Delete everything tied to the restaurant's user account
+    await db.execute(sql`DELETE FROM notifications WHERE user_id = ${uid}`);
+    await db.execute(sql`DELETE FROM addresses WHERE user_id = ${uid}`);
+    await db.execute(sql`UPDATE fraud_flags SET resolved_by = NULL WHERE resolved_by = ${uid}`);
+    await db.execute(sql`DELETE FROM fraud_flags WHERE user_id = ${uid}`);
+    await db.execute(sql`DELETE FROM users WHERE id = ${uid}`);
     res.json({ success: true });
   } catch (err: any) {
     console.error("Restaurant delete error:", err);

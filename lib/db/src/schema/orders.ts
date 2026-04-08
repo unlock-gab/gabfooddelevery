@@ -31,7 +31,7 @@ export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
   orderNumber: text("order_number").notNull().unique(),
   customerId: integer("customer_id").notNull().references(() => usersTable.id),
-  restaurantId: integer("restaurant_id").notNull().references(() => restaurantsTable.id),
+  restaurantId: integer("restaurant_id").references(() => restaurantsTable.id),
   driverId: integer("driver_id").references(() => usersTable.id),
   status: orderStatusEnum("status").notNull().default("pending_dispatch"),
   deliveryAddress: text("delivery_address").notNull(),
