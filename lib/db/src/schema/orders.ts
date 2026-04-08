@@ -45,6 +45,8 @@ export const ordersTable = pgTable("orders", {
   total: numeric("total", { precision: 10, scale: 2 }).notNull(),
   paymentMethod: paymentMethodEnum("payment_method").notNull().default("cash_on_delivery"),
   paymentStatus: paymentStatusEnum("payment_status").notNull().default("pending"),
+  promoCode: text("promo_code"),
+  promoDiscount: numeric("promo_discount", { precision: 10, scale: 2 }).default("0.00"),
   estimatedDeliveryMinutes: integer("estimated_delivery_minutes"),
   cancellationReason: text("cancellation_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

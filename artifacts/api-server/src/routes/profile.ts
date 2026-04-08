@@ -43,53 +43,99 @@ router.patch("/profile", authenticate, async (req, res): Promise<void> => {
   });
 });
 
+function formatAddress(a: any) {
+  return {
+    id: a.id,
+    label: a.label ?? "Autre",
+    fullAddress: a.fullAddress,
+    building: a.building ?? null,
+    landmark: a.landmark ?? null,
+    floor: a.floor ?? null,
+    phone: a.phone ?? null,
+    instructions: a.instructions ?? null,
+    cityId: a.cityId ?? null,
+    zoneId: a.zoneId ?? null,
+    isDefault: a.isDefault,
+    createdAt: a.createdAt?.toISOString?.() ?? a.createdAt,
+  };
+}
+
 router.get("/addresses", authenticate, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const addresses = await db.select().from(addressesTable).where(eq(addressesTable.userId, user.id)).orderBy(desc(addressesTable.createdAt));
-  res.json(addresses.map(a => ({
-    id: a.id,
-    label: a.label ?? null,
-    fullAddress: a.fullAddress,
-    landmark: a.landmark ?? null,
-    floor: a.floor ?? null,
-    instructions: a.instructions ?? null,
-    lat: a.lat ? Number(a.lat) : null,
-    lng: a.lng ? Number(a.lng) : null,
-    isDefault: a.isDefault,
-  })));
+  res.json(addresses.map(formatAddress));
 });
 
 router.post("/addresses", authenticate, async (req, res): Promise<void> => {
   const user = (req as any).user;
-  const { label, fullAddress, landmark, floor, instructions, lat, lng, isDefault } = req.body;
+  const { label, fullAddress, building, landmark, floor, phone, instructions, cityId, zoneId, isDefault } = req.body;
   if (!fullAddress) { res.status(400).json({ error: "fullAddress required" }); return; }
+
+  if (isDefault) {
+    await db.update(addressesTable).set({ isDefault: false }).where(eq(addressesTable.userId, user.id));
+  }
+
   const [addr] = await db.insert(addressesTable).values({
     userId: user.id,
-    label: label ?? null,
+    label: label ?? "Autre",
     fullAddress,
+    building: building ?? null,
     landmark: landmark ?? null,
     floor: floor ?? null,
+    phone: phone ?? null,
     instructions: instructions ?? null,
-    lat: lat?.toString() ?? null,
-    lng: lng?.toString() ?? null,
+    cityId: cityId ?? null,
+    zoneId: zoneId ?? null,
     isDefault: isDefault ?? false,
   }).returning();
-  res.status(201).json({
-    id: addr.id,
-    label: addr.label ?? null,
-    fullAddress: addr.fullAddress,
-    landmark: addr.landmark ?? null,
-    floor: addr.floor ?? null,
-    instructions: addr.instructions ?? null,
-    lat: addr.lat ? Number(addr.lat) : null,
-    lng: addr.lng ? Number(addr.lng) : null,
-    isDefault: addr.isDefault,
-  });
+  res.status(201).json(formatAddress(addr));
+});
+
+router.patch("/addresses/:addressId", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const id = parseInt(Array.isArray(req.params.addressId) ? req.params.addressId[0] : req.params.addressId, 10);
+  const { label, fullAddress, building, landmark, floor, phone, instructions, cityId, zoneId, isDefault } = req.body;
+
+  const [existing] = await db.select().from(addressesTable).where(and(eq(addressesTable.id, id), eq(addressesTable.userId, user.id)));
+  if (!existing) { res.status(404).json({ error: "Address not found" }); return; }
+
+  if (isDefault) {
+    await db.update(addressesTable).set({ isDefault: false }).where(eq(addressesTable.userId, user.id));
+  }
+
+  const updates: any = {};
+  if (label !== undefined) updates.label = label;
+  if (fullAddress !== undefined) updates.fullAddress = fullAddress;
+  if (building !== undefined) updates.building = building;
+  if (landmark !== undefined) updates.landmark = landmark;
+  if (floor !== undefined) updates.floor = floor;
+  if (phone !== undefined) updates.phone = phone;
+  if (instructions !== undefined) updates.instructions = instructions;
+  if (cityId !== undefined) updates.cityId = cityId;
+  if (zoneId !== undefined) updates.zoneId = zoneId;
+  if (isDefault !== undefined) updates.isDefault = isDefault;
+
+  const [updated] = await db.update(addressesTable).set(updates).where(eq(addressesTable.id, id)).returning();
+  res.json(formatAddress(updated));
+});
+
+router.post("/addresses/:addressId/set-default", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const id = parseInt(Array.isArray(req.params.addressId) ? req.params.addressId[0] : req.params.addressId, 10);
+
+  const [existing] = await db.select().from(addressesTable).where(and(eq(addressesTable.id, id), eq(addressesTable.userId, user.id)));
+  if (!existing) { res.status(404).json({ error: "Address not found" }); return; }
+
+  await db.update(addressesTable).set({ isDefault: false }).where(eq(addressesTable.userId, user.id));
+  const [updated] = await db.update(addressesTable).set({ isDefault: true }).where(eq(addressesTable.id, id)).returning();
+  res.json(formatAddress(updated));
 });
 
 router.delete("/addresses/:addressId", authenticate, async (req, res): Promise<void> => {
   const user = (req as any).user;
   const id = parseInt(Array.isArray(req.params.addressId) ? req.params.addressId[0] : req.params.addressId, 10);
+  const [existing] = await db.select().from(addressesTable).where(and(eq(addressesTable.id, id), eq(addressesTable.userId, user.id)));
+  if (!existing) { res.status(404).json({ error: "Address not found" }); return; }
   await db.delete(addressesTable).where(eq(addressesTable.id, id));
   res.sendStatus(204);
 });

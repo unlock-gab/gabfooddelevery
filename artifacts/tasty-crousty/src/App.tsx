@@ -16,6 +16,7 @@ import RestaurantDetail from "@/pages/customer/RestaurantDetail";
 import Checkout from "@/pages/customer/Checkout";
 import OrderTracking from "@/pages/customer/OrderTracking";
 import Orders from "@/pages/customer/Orders";
+import AddressBook from "@/pages/customer/AddressBook";
 
 // Restaurant dashboard
 import RestaurantDashboard from "@/pages/restaurant/Dashboard";
@@ -59,6 +60,7 @@ function Router() {
       <Route path="/checkout" component={Checkout} />
       <Route path="/orders" component={Orders} />
       <Route path="/orders/:orderId" component={OrderTracking} />
+      <Route path="/account/addresses" component={AddressBook} />
 
       {/* Role dashboards */}
       <Route path="/dashboard" component={RestaurantDashboard} />

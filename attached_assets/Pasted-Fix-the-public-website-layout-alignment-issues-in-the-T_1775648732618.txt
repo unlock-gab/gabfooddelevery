@@ -1,0 +1,129 @@
+Fix the public website layout alignment issues in the Tasty Crousty project.
+
+The homepage and public-facing sections currently look visually pulled to the left instead of feeling properly centered and balanced.
+
+Do NOT rebuild the site.
+Do NOT change the product architecture.
+Only refactor the layout system and spacing so the website looks properly centered, premium, and consistent.
+
+==================================================
+MAIN PROBLEM
+==================================================
+
+The public pages appear left-heavy and not visually centered.
+Some sections have inconsistent container widths, inconsistent horizontal padding, or wrappers that are not using a unified layout system.
+
+The result is:
+- hero content feels stuck to the left
+- restaurant sections feel misaligned
+- the whole landing page does not feel centered and premium
+- spacing rhythm is inconsistent across sections
+
+==================================================
+GOAL
+==================================================
+
+Create a clean, consistent, centered layout system for the entire public-facing website.
+
+The website should feel:
+- centered
+- balanced
+- premium
+- spacious
+- modern
+- responsive
+
+==================================================
+WHAT TO FIX
+==================================================
+
+Audit and refactor the public website layout structure, including:
+- homepage
+- navbar
+- hero section
+- featured restaurants section
+- “how it works” section
+- CTA sections
+- footer
+- restaurant listing pages if affected
+- public wrappers/layout shells
+
+Check for issues such as:
+- missing max-width wrappers
+- missing mx-auto
+- uneven left/right padding
+- parent containers using incorrect alignment
+- leftover dashboard/admin spacing leaking into public layout
+- grid containers not centered
+- sections using full width without inner centered containers
+- inconsistent responsive paddings
+
+==================================================
+LAYOUT SYSTEM TO APPLY
+==================================================
+
+Create a unified public container strategy and apply it consistently.
+
+Use a shared container pattern such as:
+- max-w-7xl
+- mx-auto
+- px-4 sm:px-6 lg:px-8
+
+Or an equivalent premium-width wrapper if the design supports it.
+
+Requirements:
+- every major public section should use the same container logic
+- content should align consistently from section to section
+- the navbar content should align with page sections
+- hero content should feel intentionally placed, not stuck to the far left
+- cards grids should align properly within the same content width
+- text blocks should not be excessively stretched or disconnected from the visual rhythm
+
+==================================================
+HERO SECTION IMPROVEMENTS
+==================================================
+
+Improve the hero section specifically:
+- keep strong visual hierarchy
+- maintain left-aligned text inside the centered container if desired
+- but ensure the whole hero block is inside a proper centered wrapper
+- improve spacing around headings, paragraphs, buttons, and stats
+- ensure the hero does not visually collapse toward the left edge of the screen
+
+==================================================
+RESPONSIVE REQUIREMENTS
+==================================================
+
+Make sure the layout works well on:
+- desktop
+- laptop
+- tablet
+- mobile
+
+Check:
+- side paddings
+- grid wrapping
+- hero spacing
+- CTA alignment
+- section spacing
+- card spacing
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not redesign the brand.
+Do not change the business logic.
+Do not replace the visual identity.
+Only fix the layout alignment, centering, and spacing system so the site feels polished and professionally structured.
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+1. identify the layout issues
+2. refactor the shared public container/wrapper system
+3. fix homepage alignment
+4. fix section width consistency
+5. improve hero centering and spacing
+6. keep the website premium, balanced, and clean

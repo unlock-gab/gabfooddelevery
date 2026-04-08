@@ -42,6 +42,7 @@ export function Navbar() {
           <nav className="hidden md:flex items-center gap-6">
             <NavLink href="/restaurants">Restaurants</NavLink>
             {user && <NavLink href="/orders">{t("orders")}</NavLink>}
+            {user?.role === "customer" && <NavLink href="/account/addresses">Mes adresses</NavLink>}
           </nav>
         </div>
 
@@ -88,6 +89,11 @@ export function Navbar() {
           {user && (
             <Link href="/orders" onClick={() => setMobileOpen(false)} className="flex items-center py-2 px-3 rounded-lg hover:bg-muted text-sm font-medium">
               {t("orders")}
+            </Link>
+          )}
+          {user?.role === "customer" && (
+            <Link href="/account/addresses" onClick={() => setMobileOpen(false)} className="flex items-center py-2 px-3 rounded-lg hover:bg-muted text-sm font-medium">
+              Mes adresses
             </Link>
           )}
           <div className="border-t pt-2 mt-2">

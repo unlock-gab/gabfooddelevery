@@ -3,7 +3,8 @@ import { db } from "@workspace/db";
 import {
   usersTable, restaurantsTable, driverProfilesTable, customerProfilesTable,
   ordersTable, fraudFlagsTable, platformSettingsTable, paymentsTable, ratingsTable,
-  orderStatusHistoryTable, qrDeliveryTokensTable,
+  orderStatusHistoryTable, qrDeliveryTokensTable, promoCodesTable, promoUsageTable,
+  disputesTable,
 } from "@workspace/db";
 import { createNotification } from "../lib/notifications";
 import { eq, and, count, sql, sum, avg, desc } from "drizzle-orm";
@@ -371,6 +372,170 @@ router.post("/payments/:paymentId/refund", authenticate, requireRole("admin"), a
   if (!payment) { res.status(404).json({ error: "Not found" }); return; }
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, payment.orderId));
   res.json({ id: payment.id, orderId: payment.orderId, orderNumber: order?.orderNumber ?? "Unknown", amount: Number(payment.amount), method: payment.method, status: payment.status, createdAt: payment.createdAt.toISOString() });
+});
+
+// PROMO CODES
+function formatPromo(p: any) {
+  return {
+    id: p.id,
+    code: p.code,
+    description: p.description ?? null,
+    discountType: p.discountType,
+    discountValue: Number(p.discountValue),
+    minimumBasket: p.minimumBasket ? Number(p.minimumBasket) : null,
+    maxUsageTotal: p.maxUsageTotal ?? null,
+    maxUsagePerUser: p.maxUsagePerUser ?? 1,
+    usageCount: p.usageCount,
+    isActive: p.isActive,
+    expiresAt: p.expiresAt?.toISOString?.() ?? null,
+    createdAt: p.createdAt.toISOString(),
+  };
+}
+
+router.get("/admin/promo-codes", authenticate, requireRole("admin"), async (_req, res): Promise<void> => {
+  const promos = await db.select().from(promoCodesTable).orderBy(desc(promoCodesTable.createdAt));
+  res.json(promos.map(formatPromo));
+});
+
+router.post("/admin/promo-codes", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const { code, description, discountType, discountValue, minimumBasket, maxUsageTotal, maxUsagePerUser, isActive, expiresAt } = req.body;
+  if (!code || !discountType || discountValue == null) {
+    res.status(400).json({ error: "code, discountType, discountValue required" }); return;
+  }
+  const [promo] = await db.insert(promoCodesTable).values({
+    code: code.toUpperCase().trim(),
+    description: description ?? null,
+    discountType,
+    discountValue: Number(discountValue).toFixed(2),
+    minimumBasket: minimumBasket ? Number(minimumBasket).toFixed(2) : null,
+    maxUsageTotal: maxUsageTotal ?? null,
+    maxUsagePerUser: maxUsagePerUser ?? 1,
+    isActive: isActive ?? true,
+    expiresAt: expiresAt ? new Date(expiresAt) : null,
+    createdBy: user.id,
+  }).returning();
+  res.status(201).json(formatPromo(promo));
+});
+
+router.patch("/admin/promo-codes/:promoId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.promoId) ? req.params.promoId[0] : req.params.promoId, 10);
+  const { description, discountType, discountValue, minimumBasket, maxUsageTotal, maxUsagePerUser, isActive, expiresAt } = req.body;
+  const updates: any = {};
+  if (description !== undefined) updates.description = description;
+  if (discountType !== undefined) updates.discountType = discountType;
+  if (discountValue !== undefined) updates.discountValue = Number(discountValue).toFixed(2);
+  if (minimumBasket !== undefined) updates.minimumBasket = minimumBasket ? Number(minimumBasket).toFixed(2) : null;
+  if (maxUsageTotal !== undefined) updates.maxUsageTotal = maxUsageTotal;
+  if (maxUsagePerUser !== undefined) updates.maxUsagePerUser = maxUsagePerUser;
+  if (isActive !== undefined) updates.isActive = isActive;
+  if (expiresAt !== undefined) updates.expiresAt = expiresAt ? new Date(expiresAt) : null;
+  const [promo] = await db.update(promoCodesTable).set(updates).where(eq(promoCodesTable.id, id)).returning();
+  if (!promo) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(formatPromo(promo));
+});
+
+router.delete("/admin/promo-codes/:promoId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.promoId) ? req.params.promoId[0] : req.params.promoId, 10);
+  await db.delete(promoCodesTable).where(eq(promoCodesTable.id, id));
+  res.sendStatus(204);
+});
+
+// DISPUTES
+function formatDispute(d: any, extra: any = {}) {
+  return {
+    id: d.id,
+    orderId: d.orderId,
+    orderNumber: extra.orderNumber ?? null,
+    reportedByName: extra.reportedByName ?? null,
+    type: d.type,
+    status: d.status,
+    description: d.description,
+    adminNote: d.adminNote ?? null,
+    resolution: d.resolution ?? null,
+    createdAt: d.createdAt.toISOString(),
+    updatedAt: d.updatedAt.toISOString(),
+  };
+}
+
+router.get("/admin/disputes", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const { status, type } = req.query;
+  const conditions: any[] = [];
+  if (status) conditions.push(eq(disputesTable.status, status as any));
+  if (type) conditions.push(eq(disputesTable.type, type as any));
+
+  const disputes = await db.select({
+    dispute: disputesTable,
+    orderNumber: ordersTable.orderNumber,
+    reportedByName: usersTable.name,
+  }).from(disputesTable)
+    .leftJoin(ordersTable, eq(disputesTable.orderId, ordersTable.id))
+    .leftJoin(usersTable, eq(disputesTable.reportedBy, usersTable.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(disputesTable.createdAt));
+
+  res.json(disputes.map(({ dispute, orderNumber, reportedByName }) =>
+    formatDispute(dispute, { orderNumber, reportedByName })
+  ));
+});
+
+router.post("/admin/disputes", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const { orderId, type, description } = req.body;
+  if (!orderId || !description) { res.status(400).json({ error: "orderId and description required" }); return; }
+  const [dispute] = await db.insert(disputesTable).values({
+    orderId: Number(orderId),
+    reportedBy: user.id,
+    type: type ?? "other",
+    description,
+    status: "open",
+  }).returning();
+  res.status(201).json(formatDispute(dispute));
+});
+
+router.patch("/admin/disputes/:disputeId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.disputeId) ? req.params.disputeId[0] : req.params.disputeId, 10);
+  const { status, adminNote, resolution, assignedTo } = req.body;
+  const updates: any = {};
+  if (status !== undefined) updates.status = status;
+  if (adminNote !== undefined) updates.adminNote = adminNote;
+  if (resolution !== undefined) updates.resolution = resolution;
+  if (assignedTo !== undefined) updates.assignedTo = assignedTo;
+  const [dispute] = await db.update(disputesTable).set(updates).where(eq(disputesTable.id, id)).returning();
+  if (!dispute) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(formatDispute(dispute));
+});
+
+router.get("/admin/disputes/:disputeId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.disputeId) ? req.params.disputeId[0] : req.params.disputeId, 10);
+  const [row] = await db.select({
+    dispute: disputesTable,
+    orderNumber: ordersTable.orderNumber,
+    reportedByName: usersTable.name,
+  }).from(disputesTable)
+    .leftJoin(ordersTable, eq(disputesTable.orderId, ordersTable.id))
+    .leftJoin(usersTable, eq(disputesTable.reportedBy, usersTable.id))
+    .where(eq(disputesTable.id, id));
+  if (!row) { res.status(404).json({ error: "Not found" }); return; }
+  res.json(formatDispute(row.dispute, { orderNumber: row.orderNumber, reportedByName: row.reportedByName }));
+});
+
+// DISPUTES - customer-facing (report own order)
+router.post("/orders/:orderId/dispute", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const orderId = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
+  const { type, description } = req.body;
+  if (!description) { res.status(400).json({ error: "description required" }); return; }
+  const [order] = await db.select().from(ordersTable).where(and(eq(ordersTable.id, orderId), eq(ordersTable.customerId, user.id)));
+  if (!order) { res.status(404).json({ error: "Order not found" }); return; }
+  const [dispute] = await db.insert(disputesTable).values({
+    orderId,
+    reportedBy: user.id,
+    type: type ?? "other",
+    description,
+    status: "open",
+  }).returning();
+  res.status(201).json(formatDispute(dispute));
 });
 
 export default router;

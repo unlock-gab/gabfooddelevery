@@ -18,7 +18,7 @@ artifacts/
       pages/
         Home.tsx                  Landing page
         auth/                     Login, Register (split-panel design)
-        customer/                 Restaurants, RestaurantDetail, Checkout, Orders, OrderTracking
+        customer/                 Restaurants, RestaurantDetail, Checkout, Orders, OrderTracking, AddressBook
         restaurant/               Restaurant Dashboard
         driver/                   Driver Dashboard (mobile-first)
         admin/                    Admin Dashboard + 11 sections

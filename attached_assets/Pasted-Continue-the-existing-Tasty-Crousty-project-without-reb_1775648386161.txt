@@ -1,0 +1,265 @@
+Continue the existing Tasty Crousty project without rebuilding it from scratch.
+
+Your goal in this step is to add the most important operational and commercial features that will make the platform more realistic, scalable, and useful for the Algerian market.
+
+Keep the current architecture, and extend it cleanly.
+
+==================================================
+MAIN GOAL OF THIS STEP
+==================================================
+
+Improve the platform with high-value features related to:
+- delivery zones
+- saved addresses
+- order timeline
+- confirmation center
+- full action history
+- restaurant operations
+- promo/commercial logic
+- dispute readiness
+- stronger admin operations
+
+Do not simplify the system.
+Do not convert it into a generic food delivery app.
+Keep the core business rule:
+restaurant preparation starts only after driver assignment and successful customer confirmation.
+
+==================================================
+1. DELIVERY ZONES MANAGEMENT
+==================================================
+
+Strengthen the city/zone system.
+
+Add or improve:
+- delivery zones management in admin
+- delivery fee per zone in DZD / DA
+- estimated average delivery time per zone
+- active / inactive zone status
+- city-to-zone relationships
+- restaurant-to-zone mapping
+- driver-to-zone mapping
+
+Requirements:
+- admin can create/edit/delete zones
+- admin can assign delivery fee by zone
+- admin can assign average ETA by zone
+- admin can activate/deactivate zones
+- only relevant restaurants and drivers should be linked to valid zones
+- checkout should use the selected zone to calculate delivery fee
+
+==================================================
+2. SAVED CUSTOMER ADDRESSES
+==================================================
+
+Add a robust saved addresses system for customers.
+
+Each customer should be able to:
+- save multiple addresses
+- label addresses such as:
+  - Home
+  - Work
+  - Other
+- store detailed address fields:
+  - city
+  - zone
+  - street / address line
+  - landmark
+  - building
+  - floor
+  - phone number
+  - delivery notes
+- choose a default address
+- edit or delete saved addresses
+
+Requirements:
+- address management page in customer account
+- address selector during checkout
+- support French first, Arabic second
+- design should be clean and mobile-friendly
+
+==================================================
+3. FULL ORDER TIMELINE
+==================================================
+
+Build a premium full order timeline system.
+
+Every order should show a clear progress timeline with timestamps, such as:
+- commande créée
+- dispatch en cours
+- livreur assigné
+- confirmation client
+- préparation en cours
+- commande prête
+- commande récupérée
+- livreur en route
+- arrivée proche
+- commande livrée
+
+Requirements:
+- customer order detail page should show timeline
+- restaurant order detail page should show timeline
+- driver order detail page should show timeline
+- admin order detail page should show full operational timeline
+- use reusable timeline UI components
+- use proper French wording first
+- support Arabic layout and translations
+
+==================================================
+4. FULL ACTION HISTORY / AUDIT LOGIC
+==================================================
+
+Add a complete history/audit layer for major actions.
+
+Track actions such as:
+- order created
+- status changed
+- driver assigned
+- driver reassigned
+- confirmation result submitted
+- order updated
+- order cancelled
+- admin override used
+- QR verified
+- payment status changed
+
+Requirements:
+- each action should store:
+  - actor
+  - actor role
+  - action type
+  - target entity
+  - timestamp
+  - optional note / metadata
+- show history clearly in admin order detail pages
+- use this as a support/dispute/fraud aid
+
+==================================================
+5. CONFIRMATION CENTER
+==================================================
+
+Build a dedicated confirmation center for the platform.
+
+Add admin and operational interfaces for:
+- orders awaiting customer confirmation
+- orders needing correction
+- failed confirmations
+- successfully confirmed orders
+
+Requirements:
+- dedicated admin section for confirmations
+- filters by restaurant / driver / city / date / status
+- confirmation result details
+- manual review actions
+- ability to trigger re-check flow where appropriate
+
+This is a key operational part of the product and should feel important in the UI.
+
+==================================================
+6. RESTAURANT OPERATIONS IMPROVEMENTS
+==================================================
+
+Improve restaurant tools by adding:
+- minimum order amount
+- average preparation time
+- product availability toggle
+- temporary out-of-stock state
+- restaurant pause mode
+- open / closed / paused states
+- optional free delivery threshold per restaurant
+- clearer locked-preparation UI states
+
+Requirements:
+- restaurant dashboard should expose these controls cleanly
+- admin should also be able to view/manage these values
+- product availability should affect menu and cart logic
+
+==================================================
+7. COMMERCIAL / PROMO FEATURES
+==================================================
+
+Add a simple but scalable promotional system.
+
+Implement:
+- promo code structure
+- fixed discount or percentage discount
+- delivery fee discount / free delivery option
+- minimum basket requirement
+- active/inactive promo state
+- usage limits placeholder
+
+Requirements:
+- promo code field in checkout
+- order summary should reflect discount clearly
+- admin can manage promo codes
+- French-first labels and polished UX
+
+==================================================
+8. DISPUTE / SUPPORT READINESS
+==================================================
+
+Prepare the system for delivery issues and support operations.
+
+Add:
+- basic support ticket model usage or support case UI
+- ability to associate disputes with an order
+- internal admin notes
+- dispute type categories
+- status of support case
+
+Example dispute cases:
+- client says order not delivered
+- driver says delivered
+- restaurant says order was prepared but not picked up
+- payment issue
+- QR delivery issue
+
+Requirements:
+- admin should be able to open/read/manage disputes
+- order detail page should show linked dispute/support info if it exists
+
+==================================================
+9. STRONGER ADMIN OPERATIONS
+==================================================
+
+Improve admin operational power with:
+- richer filters
+- better tables
+- bulk action placeholders where useful
+- more detailed entity pages
+- clearer status chips
+- richer metrics for restaurants, drivers, and customers
+
+Examples:
+- customer cancellation rate
+- customer risk score
+- driver failed confirmation rate
+- restaurant preparation reliability
+- zone delivery activity
+
+==================================================
+10. ALGERIAN MARKET FIT
+==================================================
+
+Keep everything adapted for Algeria:
+- use DZD / DA currency
+- realistic delivery fees
+- realistic food pricing
+- French as default UI
+- Arabic as secondary language
+- mobile-first usability
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+In this step:
+1. extend the current data model where needed
+2. improve admin pages and dashboards
+3. improve customer account/address flows
+4. improve restaurant operational controls
+5. add promo/dispute foundations
+6. improve timeline and history logic
+7. keep code clean and modular
+8. do not unnecessarily rewrite working parts
+
+Focus on making the platform more complete, operational, and commercially realistic.

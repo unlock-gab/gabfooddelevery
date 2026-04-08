@@ -4,7 +4,7 @@ import {
   ordersTable, orderItemsTable, orderStatusHistoryTable, qrDeliveryTokensTable,
   restaurantsTable, usersTable, dispatchAttemptsTable, driverProfilesTable,
   customerProfilesTable, cartTable, cartItemsTable, paymentsTable, productsTable,
-  fraudFlagsTable, zonesTable, platformSettingsTable,
+  fraudFlagsTable, zonesTable, platformSettingsTable, promoCodesTable, promoUsageTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, count } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
@@ -88,7 +88,7 @@ router.get("/orders", authenticate, async (req, res): Promise<void> => {
 
 router.post("/orders", authenticate, async (req, res): Promise<void> => {
   const user = (req as any).user;
-  const { restaurantId, deliveryAddress, deliveryLandmark, deliveryFloor, deliveryInstructions, deliveryPhone, zoneId, paymentMethod, items } = req.body;
+  const { restaurantId, deliveryAddress, deliveryLandmark, deliveryFloor, deliveryInstructions, deliveryPhone, zoneId, paymentMethod, items, promoCode } = req.body;
 
   if (!restaurantId || !deliveryAddress || !paymentMethod || !items?.length) {
     res.status(400).json({ error: "Missing required fields" }); return;
@@ -117,7 +117,41 @@ router.post("/orders", authenticate, async (req, res): Promise<void> => {
     if (setting?.value) deliveryFee = Number(setting.value) || 350;
   }
 
-  const total = subtotal + deliveryFee;
+  // Promo code validation and discount
+  let promoDiscount = 0;
+  let resolvedPromoCode: string | null = null;
+  let resolvedPromoId: number | null = null;
+  if (promoCode) {
+    const [promo] = await db.select().from(promoCodesTable)
+      .where(and(eq(promoCodesTable.code, promoCode.toUpperCase()), eq(promoCodesTable.isActive, true)));
+    if (promo) {
+      const now = new Date();
+      const notExpired = !promo.expiresAt || promo.expiresAt > now;
+      const notExhausted = !promo.maxUsageTotal || promo.usageCount < promo.maxUsageTotal;
+      const meetsMinBasket = !promo.minimumBasket || subtotal >= Number(promo.minimumBasket);
+
+      if (notExpired && notExhausted && meetsMinBasket) {
+        const userUsage = await db.select({ cnt: count() }).from(promoUsageTable)
+          .where(and(eq(promoUsageTable.promoId, promo.id), eq(promoUsageTable.userId, user.id)));
+        const perUserOk = !promo.maxUsagePerUser || (userUsage[0]?.cnt ?? 0) < promo.maxUsagePerUser;
+
+        if (perUserOk) {
+          if (promo.discountType === "fixed") {
+            promoDiscount = Math.min(Number(promo.discountValue), subtotal);
+          } else if (promo.discountType === "percentage") {
+            promoDiscount = Math.round(subtotal * Number(promo.discountValue) / 100);
+          } else if (promo.discountType === "free_delivery") {
+            promoDiscount = deliveryFee;
+            deliveryFee = 0;
+          }
+          resolvedPromoCode = promo.code;
+          resolvedPromoId = promo.id;
+        }
+      }
+    }
+  }
+
+  const total = Math.max(0, subtotal + deliveryFee - promoDiscount);
 
   const [order] = await db.insert(ordersTable).values({
     orderNumber,
@@ -131,6 +165,8 @@ router.post("/orders", authenticate, async (req, res): Promise<void> => {
     zoneId: zoneId ?? null,
     subtotal: subtotal.toFixed(2),
     deliveryFee: deliveryFee.toFixed(2),
+    promoCode: resolvedPromoCode,
+    promoDiscount: promoDiscount.toFixed(2),
     total: total.toFixed(2),
     paymentMethod: paymentMethod as any,
     paymentStatus: paymentMethod === "cash_on_delivery" ? "cash_on_delivery" : "pending",
@@ -157,6 +193,19 @@ router.post("/orders", authenticate, async (req, res): Promise<void> => {
     method: paymentMethod,
     status: paymentMethod === "cash_on_delivery" ? "cash_on_delivery" : "pending",
   });
+
+  // Record promo usage and increment counter
+  if (resolvedPromoId && promoDiscount > 0) {
+    await db.insert(promoUsageTable).values({
+      promoId: resolvedPromoId,
+      userId: user.id,
+      orderId: order.id,
+      discountApplied: promoDiscount.toFixed(2),
+    });
+    await db.update(promoCodesTable)
+      .set({ usageCount: sql`usage_count + 1` })
+      .where(eq(promoCodesTable.id, resolvedPromoId));
+  }
 
   // Generate QR token
   const token = crypto.randomBytes(32).toString("hex");

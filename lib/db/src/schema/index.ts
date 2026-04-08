@@ -9,3 +9,5 @@ export * from "./ratings";
 export * from "./notifications";
 export * from "./fraud";
 export * from "./payments";
+export * from "./promo";
+export * from "./disputes";

@@ -39,15 +39,18 @@ export const driverProfilesTable = pgTable("driver_profiles", {
 export const addressesTable = pgTable("addresses", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => usersTable.id),
-  label: text("label"),
+  label: text("label").default("Autre"),
   fullAddress: text("full_address").notNull(),
+  building: text("building"),
   landmark: text("landmark"),
   floor: text("floor"),
+  phone: text("phone"),
   instructions: text("instructions"),
-  lat: numeric("lat", { precision: 10, scale: 7 }),
-  lng: numeric("lng", { precision: 10, scale: 7 }),
+  cityId: integer("city_id").references(() => citiesTable.id),
+  zoneId: integer("zone_id"),
   isDefault: boolean("is_default").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 
 export const insertCustomerProfileSchema = createInsertSchema(customerProfilesTable).omit({ id: true, createdAt: true, updatedAt: true });

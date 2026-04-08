@@ -6,13 +6,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { useGetCart, useCreateOrder, useListCities, useListZones } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { ShoppingCart, MapPin, CreditCard, ChevronLeft, Banknote, Wifi, Lock, Shield, ChevronDown } from "lucide-react";
+import { ShoppingCart, MapPin, CreditCard, ChevronLeft, Banknote, Wifi, Lock, Shield, ChevronDown, Tag, CheckCircle, X, Home, Briefcase } from "lucide-react";
 import { Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDA } from "@/lib/format";
+
+interface SavedAddress {
+  id: number;
+  label: string;
+  fullAddress: string;
+  building: string | null;
+  landmark: string | null;
+  floor: string | null;
+  phone: string | null;
+  instructions: string | null;
+  cityId: number | null;
+  zoneId: number | null;
+  isDefault: boolean;
+}
+
+const LABEL_ICONS: Record<string, React.ReactNode> = {
+  Domicile: <Home className="w-3.5 h-3.5" />,
+  Travail: <Briefcase className="w-3.5 h-3.5" />,
+};
+
+interface AppliedPromo {
+  code: string;
+  discountType: string;
+  discountValue: number;
+  discountAmount: number;
+  description: string | null;
+}
 
 function SectionTitle({ icon: Icon, children }: { icon: any; children: React.ReactNode }) {
   return (
@@ -44,6 +72,58 @@ export default function Checkout() {
   const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
   const [zoneDeliveryFee, setZoneDeliveryFee] = useState<number | null>(null);
+
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("tc_token");
+    if (!token) return;
+    fetch("/api/addresses", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then((data: SavedAddress[]) => {
+        setSavedAddresses(data ?? []);
+        const def = data?.find(a => a.isDefault);
+        if (def) applyAddress(def);
+      })
+      .catch(() => {});
+  }, []);
+
+  const applyAddress = (addr: SavedAddress) => {
+    setSelectedAddressId(addr.id);
+    setForm(f => ({
+      ...f,
+      deliveryAddress: addr.fullAddress,
+      deliveryLandmark: addr.landmark ?? "",
+      deliveryFloor: addr.floor ?? "",
+      deliveryInstructions: addr.instructions ?? "",
+      deliveryPhone: addr.phone ?? f.deliveryPhone,
+    }));
+    if (addr.cityId) setSelectedCityId(addr.cityId);
+    if (addr.zoneId) setSelectedZoneId(addr.zoneId);
+  };
+
+  const handleValidatePromo = async () => {
+    if (!promoInput.trim()) return;
+    setPromoLoading(true);
+    const token = localStorage.getItem("tc_token");
+    const subtotal = (cart as any)?.items?.reduce((s: number, i: any) => s + i.price * i.quantity, 0) ?? 0;
+    const delFee = zoneDeliveryFee ?? ((cart as any)?.deliveryFee ?? 0);
+    try {
+      const res = await fetch("/api/promo/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code: promoInput.trim(), subtotal, deliveryFee: delFee }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast({ title: data.error ?? "Code invalide", variant: "destructive" }); }
+      else { setAppliedPromo(data); toast({ title: `Code ${data.code} appliqué !`, description: data.description ?? undefined }); }
+    } finally { setPromoLoading(false); }
+  };
 
   const { data: cities } = useListCities(undefined, { query: { staleTime: 60000 } });
   const { data: zones } = useListZones(selectedCityId!, {
@@ -93,6 +173,7 @@ export default function Checkout() {
           deliveryPhone: form.deliveryPhone || undefined,
           zoneId: selectedZoneId ?? undefined,
           paymentMethod: form.paymentMethod,
+          promoCode: appliedPromo?.code ?? undefined,
           items: (cart as any).items.map((item: any) => ({
             productId: item.productId,
             productName: item.productName,
@@ -100,7 +181,7 @@ export default function Checkout() {
             price: item.price * item.quantity,
             notes: item.notes ?? undefined,
           })),
-        },
+        } as any,
       },
       {
         onSuccess: (order: any) => {
@@ -157,7 +238,8 @@ export default function Checkout() {
   const subtotal = cartData.items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
   // Use zone fee if selected, else fall back to cart's stored fee
   const deliveryFee = zoneDeliveryFee ?? (cartData.deliveryFee ?? 0);
-  const total = subtotal + deliveryFee;
+  const promoDiscount = appliedPromo?.discountAmount ?? 0;
+  const total = Math.max(0, subtotal + deliveryFee - promoDiscount);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50/60">
@@ -178,6 +260,43 @@ export default function Checkout() {
               <div className="bg-white rounded-2xl border p-6 shadow-sm">
                 <SectionTitle icon={MapPin}>Adresse de livraison</SectionTitle>
                 <div className="space-y-4">
+                  {/* Saved address selector */}
+                  {savedAddresses.length > 0 && (
+                    <div>
+                      <Label className="text-sm font-semibold mb-2 block">Adresses enregistrées</Label>
+                      <div className="flex flex-col gap-2">
+                        {savedAddresses.map(addr => (
+                          <button
+                            key={addr.id}
+                            type="button"
+                            onClick={() => applyAddress(addr)}
+                            className={`flex items-start gap-3 p-3 rounded-xl border-2 text-left transition-all ${selectedAddressId === addr.id ? "border-primary bg-primary/5" : "border-muted hover:border-primary/40 bg-white"}`}
+                          >
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${selectedAddressId === addr.id ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                              {LABEL_ICONS[addr.label] ?? <MapPin className="w-3.5 h-3.5" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-sm font-semibold">{addr.label}</span>
+                                {addr.isDefault && <Badge variant="outline" className="text-[10px] h-4 px-1.5">Par défaut</Badge>}
+                                {selectedAddressId === addr.id && <CheckCircle className="w-3.5 h-3.5 text-primary ml-auto" />}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-0.5 truncate">{addr.fullAddress}</p>
+                              {addr.landmark && <p className="text-xs text-muted-foreground/70 truncate">{addr.landmark}</p>}
+                            </div>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedAddressId(null); setForm(f => ({ ...f, deliveryAddress: "", deliveryLandmark: "", deliveryFloor: "", deliveryInstructions: "" })); }}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 border-dashed text-sm transition-all ${selectedAddressId === null ? "border-primary text-primary" : "border-muted text-muted-foreground hover:border-primary/40"}`}
+                        >
+                          <MapPin className="w-3.5 h-3.5" /> Nouvelle adresse
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Zone selector */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -359,6 +478,40 @@ export default function Checkout() {
 
                   <Separator />
 
+                  {/* Promo code input */}
+                  <div className="pt-1">
+                    {appliedPromo ? (
+                      <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                        <Tag className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-bold text-emerald-800 font-mono">{appliedPromo.code}</span>
+                          {appliedPromo.description && <span className="text-xs text-emerald-600 ml-1.5">{appliedPromo.description}</span>}
+                        </div>
+                        <button type="button" onClick={() => { setAppliedPromo(null); setPromoInput(""); }} className="text-emerald-400 hover:text-emerald-700">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                          <Input
+                            placeholder="Code promo"
+                            value={promoInput}
+                            onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                            onKeyDown={e => e.key === "Enter" && (e.preventDefault(), handleValidatePromo())}
+                            className="h-9 text-sm pl-8 uppercase font-mono"
+                          />
+                        </div>
+                        <Button type="button" variant="outline" size="sm" className="h-9 shrink-0" onClick={handleValidatePromo} disabled={promoLoading || !promoInput.trim()}>
+                          {promoLoading ? "…" : "Appliquer"}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between text-muted-foreground">
                       <span>Sous-total</span>
@@ -370,11 +523,25 @@ export default function Checkout() {
                         {selectedZoneId && (
                           <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded-full">zone</span>
                         )}
+                        {appliedPromo?.discountType === "free_delivery" && (
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">promo</span>
+                        )}
                       </span>
                       <span className="tabular-nums">
+                        {appliedPromo?.discountType === "free_delivery" ? (
+                          <span className="line-through text-muted-foreground/50 mr-1">{formatDA(deliveryFee + promoDiscount)}</span>
+                        ) : null}
                         {deliveryFee > 0 ? formatDA(deliveryFee) : "Gratuite"}
                       </span>
                     </div>
+                    {appliedPromo && appliedPromo.discountType !== "free_delivery" && promoDiscount > 0 && (
+                      <div className="flex justify-between text-emerald-600">
+                        <span className="flex items-center gap-1">
+                          <Tag className="w-3 h-3" /> Réduction ({appliedPromo.code})
+                        </span>
+                        <span className="tabular-nums font-semibold">−{formatDA(promoDiscount)}</span>
+                      </div>
+                    )}
                     <Separator />
                     <div className="flex justify-between font-bold text-base pt-1">
                       <span>Total</span>

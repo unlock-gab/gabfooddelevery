@@ -10,6 +10,8 @@ function formatRestaurant(r: any) {
   return {
     ...r,
     commissionRate: r.commissionRate ? Number(r.commissionRate) : null,
+    minimumOrder: r.minimumOrder ? Number(r.minimumOrder) : 0,
+    freeDeliveryThreshold: r.freeDeliveryThreshold ? Number(r.freeDeliveryThreshold) : null,
     avgRating: r.avgRating ? Number(r.avgRating) : null,
     createdAt: r.createdAt?.toISOString?.() ?? r.createdAt,
     updatedAt: r.updatedAt?.toISOString?.() ?? r.updatedAt,
@@ -59,6 +61,13 @@ router.post("/restaurants", authenticate, async (req, res): Promise<void> => {
   res.status(201).json(formatRestaurant(restaurant));
 });
 
+router.get("/restaurants/mine", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const [restaurant] = await db.select().from(restaurantsTable).where(and(eq(restaurantsTable.userId, user.id), eq(restaurantsTable.isDeleted, false)));
+  if (!restaurant) { res.status(404).json({ error: "No restaurant found for this account" }); return; }
+  res.json(formatRestaurant(restaurant));
+});
+
 router.get("/restaurants/:restaurantId", async (req, res): Promise<void> => {
   const id = parseInt(Array.isArray(req.params.restaurantId) ? req.params.restaurantId[0] : req.params.restaurantId, 10);
   const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, id));
@@ -78,7 +87,7 @@ router.patch("/restaurants/:restaurantId", authenticate, async (req, res): Promi
   }
 
   const updates: any = {};
-  const fields = ["name", "nameAr", "description", "logoUrl", "coverUrl", "phone", "address", "cityId", "zoneId", "isOpen", "category", "estimatedPrepTime", "commissionRate", "status"];
+  const fields = ["name", "nameAr", "description", "logoUrl", "coverUrl", "phone", "address", "cityId", "zoneId", "isOpen", "isPaused", "category", "estimatedPrepTime", "minimumOrder", "freeDeliveryThreshold", "commissionRate", "status"];
   for (const f of fields) {
     if (req.body[f] != null) updates[f] = req.body[f];
   }
@@ -106,6 +115,16 @@ router.post("/restaurants/:restaurantId/toggle-open", authenticate, async (req, 
   const [existing] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
   const [restaurant] = await db.update(restaurantsTable).set({ isOpen: !existing.isOpen }).where(eq(restaurantsTable.id, id)).returning();
+  res.json(formatRestaurant(restaurant));
+});
+
+router.post("/restaurants/:restaurantId/toggle-pause", authenticate, async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.restaurantId) ? req.params.restaurantId[0] : req.params.restaurantId, 10);
+  const user = (req as any).user;
+  const [existing] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (user.role !== "admin" && existing.userId !== user.id) { res.status(403).json({ error: "Forbidden" }); return; }
+  const [restaurant] = await db.update(restaurantsTable).set({ isPaused: !existing.isPaused }).where(eq(restaurantsTable.id, id)).returning();
   res.json(formatRestaurant(restaurant));
 });
 

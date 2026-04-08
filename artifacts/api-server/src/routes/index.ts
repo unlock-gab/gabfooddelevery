@@ -9,6 +9,7 @@ import ordersRouter from "./orders";
 import dispatchRouter from "./dispatch";
 import adminRouter from "./admin";
 import profileRouter from "./profile";
+import promoRouter from "./promo";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(ordersRouter);
 router.use(dispatchRouter);
 router.use(adminRouter);
 router.use(profileRouter);
+router.use(promoRouter);
 
 export default router;

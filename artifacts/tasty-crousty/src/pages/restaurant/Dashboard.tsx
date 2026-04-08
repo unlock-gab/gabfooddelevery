@@ -12,7 +12,7 @@ import { useListOrders, useGetRestaurantStats, useStartPreparing, useMarkOrderRe
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { ShoppingBag, Clock, TrendingUp, Star, ChefHat, CheckCircle, Package, ToggleLeft, ToggleRight, RefreshCw } from "lucide-react";
+import { ShoppingBag, Clock, TrendingUp, Star, ChefHat, CheckCircle, Package, ToggleLeft, ToggleRight, RefreshCw, PauseCircle, PlayCircle } from "lucide-react";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
@@ -136,8 +136,37 @@ export default function RestaurantDashboard() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState("active");
+  const [myRestaurant, setMyRestaurant] = React.useState<any>(null);
+  const [pauseLoading, setPauseLoading] = React.useState(false);
 
-  if (!user || user.role !== "restaurant") {
+  const authorized = !!user && user.role === "restaurant";
+
+  React.useEffect(() => {
+    if (!authorized) return;
+    const token = localStorage.getItem("tc_token");
+    fetch("/api/restaurants/mine", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setMyRestaurant(data); })
+      .catch(() => {});
+  }, [authorized]);
+
+  const handleTogglePause = async () => {
+    if (!myRestaurant) return;
+    setPauseLoading(true);
+    const token = localStorage.getItem("tc_token");
+    const res = await fetch(`/api/restaurants/${myRestaurant.id}/toggle-pause`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setMyRestaurant(updated);
+      toast({ title: updated.isPaused ? "Restaurant mis en pause" : "Restaurant réouvert" });
+    }
+    setPauseLoading(false);
+  };
+
+  if (!authorized) {
     setLocation("/auth/login");
     return null;
   }
@@ -199,6 +228,20 @@ export default function RestaurantDashboard() {
             </div>
             <div className="flex items-center gap-2">
               <NotificationBell />
+              {myRestaurant && (
+                <Button
+                  variant={myRestaurant.isPaused ? "destructive" : "outline"}
+                  size="sm"
+                  onClick={handleTogglePause}
+                  disabled={pauseLoading}
+                  className="gap-1.5"
+                >
+                  {myRestaurant.isPaused
+                    ? <><PlayCircle className="w-4 h-4" /> Réouvrir</>
+                    : <><PauseCircle className="w-4 h-4" /> Pause</>
+                  }
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={refetchAll}>
                 <RefreshCw className="w-4 h-4 mr-1" /> Actualiser
               </Button>
