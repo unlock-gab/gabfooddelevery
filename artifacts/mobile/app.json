@@ -14,9 +14,14 @@
       "backgroundColor": "#F0A000"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "TastyCrousty utilise votre position pour remplir automatiquement votre adresse de livraison."
+      }
     },
-    "android": {},
+    "android": {
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -28,7 +33,13 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "TastyCrousty utilise votre position pour remplir automatiquement votre adresse de livraison."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

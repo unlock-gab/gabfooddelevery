@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useState, useEffect } from "react";
 import {
@@ -93,6 +94,42 @@ export default function CheckoutScreen() {
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+
+  const fetchGPS = async () => {
+    setGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Permission refusée",
+          "Activez la localisation dans les paramètres de votre appareil pour utiliser le GPS."
+        );
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const [geo] = await Location.reverseGeocodeAsync({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      });
+      if (geo) {
+        const parts = [
+          geo.streetNumber,
+          geo.street,
+          geo.district ?? geo.subregion,
+          geo.city,
+        ].filter(Boolean);
+        setAddress(parts.join(", "));
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert("GPS", "Impossible de convertir votre position en adresse.");
+      }
+    } catch {
+      Alert.alert("GPS", "Erreur lors de la récupération de votre position.");
+    } finally {
+      setGpsLoading(false);
+    }
+  };
 
   const deliveryFee = selectedZone?.deliveryFee ? Number(selectedZone.deliveryFee) : 350;
   const grandTotal = total + deliveryFee;
@@ -331,7 +368,24 @@ export default function CheckoutScreen() {
             ) : null}
 
             <View style={s.inputGroup}>
-              <Text style={[s.label, { color: colors.foreground }]}>Adresse *</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <Text style={[s.label, { color: colors.foreground, marginBottom: 0 }]}>Adresse *</Text>
+                <TouchableOpacity
+                  style={[s.gpsBtn, { backgroundColor: `${colors.primary}15`, borderColor: `${colors.primary}30` }]}
+                  onPress={fetchGPS}
+                  disabled={gpsLoading}
+                  activeOpacity={0.7}
+                >
+                  {gpsLoading ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <>
+                      <Feather name="navigation" size={12} color={colors.primary} />
+                      <Text style={[s.gpsBtnText, { color: colors.primary }]}>Ma position GPS</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
               <TextInput
                 style={[
                   s.input,
@@ -501,6 +555,16 @@ const s = StyleSheet.create({
   totalValue: { fontSize: 18, fontWeight: "800" as const },
   payCard: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14, borderRadius: 14, borderWidth: 1 },
   payText: { fontSize: 14, fontWeight: "600" as const },
+  gpsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  gpsBtnText: { fontSize: 12, fontWeight: "600" as const },
   cta: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   orderBtn: {
     flexDirection: "row",
