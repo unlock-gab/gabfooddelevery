@@ -4,7 +4,7 @@ import {
   usersTable, restaurantsTable, driverProfilesTable, customerProfilesTable,
   ordersTable, fraudFlagsTable, platformSettingsTable, paymentsTable, ratingsTable,
   orderStatusHistoryTable, qrDeliveryTokensTable, promoCodesTable, promoUsageTable,
-  disputesTable,
+  disputesTable, dispatchAttemptsTable, notificationsTable,
 } from "@workspace/db";
 import { createNotification } from "../lib/notifications";
 import { eq, and, count, sql, sum, avg, desc } from "drizzle-orm";
@@ -315,9 +315,33 @@ router.delete("/drivers/:driverId", authenticate, requireRole("admin"), async (r
   const id = parseInt(Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId, 10);
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.id, id));
   if (!profile) { res.status(404).json({ error: "Not found" }); return; }
-  await db.delete(driverProfilesTable).where(eq(driverProfilesTable.id, id));
-  await db.delete(usersTable).where(eq(usersTable.id, profile.userId));
-  res.json({ success: true });
+
+  const userId = profile.userId;
+
+  try {
+    // 1. Dissocier les commandes (conserver l'historique, mettre driver_id à NULL)
+    await db.update(ordersTable).set({ driverId: null }).where(eq(ordersTable.driverId, userId));
+
+    // 2. Supprimer les tentatives de dispatch
+    await db.delete(dispatchAttemptsTable).where(eq(dispatchAttemptsTable.driverId, userId));
+
+    // 3. Supprimer les notifications
+    await db.delete(notificationsTable).where(eq(notificationsTable.userId, userId));
+
+    // 4. Supprimer les signalements de fraude
+    await db.delete(fraudFlagsTable).where(eq(fraudFlagsTable.userId, userId));
+
+    // 5. Supprimer le profil livreur
+    await db.delete(driverProfilesTable).where(eq(driverProfilesTable.id, id));
+
+    // 6. Supprimer l'utilisateur
+    await db.delete(usersTable).where(eq(usersTable.id, userId));
+
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Driver delete error:", err);
+    res.status(500).json({ error: "Impossible de supprimer ce livreur : " + (err.message ?? "erreur interne") });
+  }
 });
 
 // CUSTOMERS
