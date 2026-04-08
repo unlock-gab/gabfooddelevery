@@ -485,8 +485,8 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
                       </View>
                     </TouchableOpacity>
 
-                    {/* Navigation buttons */}
-                    {(beforePickup || afterPickup) && (
+                    {/* Navigation + Call buttons */}
+                    {(beforePickup || afterPickup || item.deliveryPhone) && (
                       <View style={{ flexDirection: "row", borderTopWidth: 1, borderTopColor: colors.border }}>
                         {beforePickup && item.restaurantAddress && (
                           <TouchableOpacity
@@ -506,7 +506,28 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
                             <Text style={{ color: "#16A34A", fontSize: 13, fontWeight: "600" }}>Client</Text>
                           </TouchableOpacity>
                         )}
-                        {/* Show both buttons when ready_for_pickup: restaurant nav only */}
+                        {/* Call customer button */}
+                        {item.deliveryPhone ? (
+                          <TouchableOpacity
+                            style={{ flex: 1, paddingVertical: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6, backgroundColor: "#F0FDF4", borderLeftWidth: (beforePickup && item.restaurantAddress) || (afterPickup && item.deliveryAddress) ? 1 : 0, borderLeftColor: colors.border }}
+                            onPress={() => {
+                              Alert.alert(
+                                "Appeler le client",
+                                `📞  ${item.deliveryPhone}`,
+                                [
+                                  { text: "Annuler", style: "cancel" },
+                                  {
+                                    text: "Appeler",
+                                    onPress: () => Linking.openURL(`tel:${item.deliveryPhone}`),
+                                  },
+                                ]
+                              );
+                            }}
+                          >
+                            <Ionicons name="call" size={14} color="#16A34A" />
+                            <Text style={{ color: "#16A34A", fontSize: 13, fontWeight: "600" }}>Appeler</Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
                     )}
 
