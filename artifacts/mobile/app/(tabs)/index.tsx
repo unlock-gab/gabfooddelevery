@@ -346,26 +346,56 @@ function DriverHome({ colors, insets }: { colors: any; insets: any }) {
               </View>
               {missions.map((m: any) => (
                 <View key={m.orderId} style={[ds.missionCard, { backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }]}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }} numberOfLines={1}>
-                        {m.restaurantName}
-                      </Text>
-                      <Text style={{ fontSize: 12, color: colors.mutedForeground, marginTop: 2 }} numberOfLines={1}>
-                        {m.restaurantAddress}
-                      </Text>
-                    </View>
+                  {/* Header: restaurant name + badge gain */}
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: colors.foreground }} numberOfLines={1}>
+                      {m.restaurantName}
+                    </Text>
                     <View style={{ backgroundColor: "#F0A000", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
                       <Text style={{ color: "#fff", fontSize: 13, fontWeight: "700" }}>
-                        {formatDA(m.estimatedEarnings)}
+                        +{formatDA(m.estimatedEarnings)}
                       </Text>
                     </View>
                   </View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
-                    <Ionicons name="location-outline" size={14} color={colors.mutedForeground} />
-                    <Text style={{ fontSize: 12, color: colors.mutedForeground, flex: 1 }} numberOfLines={1}>
-                      {m.deliveryAddress}
-                    </Text>
+
+                  {/* A → B route visual */}
+                  <View style={{ backgroundColor: "#fff", borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: "#FDE68A" }}>
+                    {/* Point A — Restaurant */}
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+                      <View style={{ alignItems: "center", width: 22 }}>
+                        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#F59E0B", alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ color: "#fff", fontSize: 11, fontWeight: "900" }}>A</Text>
+                        </View>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, color: "#9CA3AF", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>Restaurant</Text>
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#1F2937", marginTop: 1 }} numberOfLines={2}>
+                          {m.restaurantAddress && m.restaurantAddress !== "N/A" ? m.restaurantAddress : m.restaurantName}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Dashed connector */}
+                    <View style={{ flexDirection: "row", marginVertical: 4 }}>
+                      <View style={{ width: 22, alignItems: "center" }}>
+                        <View style={{ width: 2, height: 18, borderStyle: "dashed", borderWidth: 1, borderColor: "#D1D5DB" }} />
+                      </View>
+                    </View>
+
+                    {/* Point B — Client */}
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+                      <View style={{ alignItems: "center", width: 22 }}>
+                        <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: "#22C55E", alignItems: "center", justifyContent: "center" }}>
+                          <Text style={{ color: "#fff", fontSize: 11, fontWeight: "900" }}>B</Text>
+                        </View>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, color: "#9CA3AF", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5 }}>Client</Text>
+                        <Text style={{ fontSize: 13, fontWeight: "600", color: "#1F2937", marginTop: 1 }} numberOfLines={2}>
+                          {m.deliveryAddress ?? "Adresse non spécifiée"}
+                        </Text>
+                      </View>
+                    </View>
                   </View>
                   <View style={{ flexDirection: "row", gap: 10 }}>
                     <TouchableOpacity
