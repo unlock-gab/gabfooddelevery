@@ -3,11 +3,13 @@ import { db } from "@workspace/db";
 import {
   ordersTable, orderItemsTable, orderStatusHistoryTable, qrDeliveryTokensTable,
   restaurantsTable, usersTable, dispatchAttemptsTable, driverProfilesTable,
-  customerProfilesTable, cartTable, cartItemsTable, paymentsTable,
+  customerProfilesTable, cartTable, cartItemsTable, paymentsTable, productsTable,
 } from "@workspace/db";
 import { eq, and, desc, sql, count } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
 import { createNotification } from "../lib/notifications";
+import { canTransition, STATUS_LABELS } from "../lib/state-machine";
+import { dispatchOrder } from "../lib/dispatch-engine";
 import crypto from "crypto";
 
 const router = Router();
@@ -171,6 +173,9 @@ router.post("/orders", authenticate, async (req, res): Promise<void> => {
     await db.update(cartTable).set({ restaurantId: null }).where(eq(cartTable.id, cart.id));
   }
 
+  // Trigger auto-dispatch asynchronously (don't block the response)
+  dispatchOrder(order.id).catch((err) => console.error("Dispatch failed:", err));
+
   res.status(201).json(formatOrder({ ...order, restaurantName: restaurant.name, driverName: null }));
 });
 
@@ -297,6 +302,59 @@ router.get("/orders/:orderId/status-history", authenticate, async (req, res): Pr
     createdBy: h.createdBy ?? null,
     createdAt: h.createdAt.toISOString(),
   })));
+});
+
+// Customer updates delivery info when order needs correction (status: needs_update)
+router.patch("/orders/:orderId/update-info", authenticate, async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
+  const user = (req as any).user;
+  const { deliveryAddress, deliveryLandmark, deliveryFloor, deliveryInstructions, deliveryPhone } = req.body;
+
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+  if (!order) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Only the customer who owns the order or an admin can update
+  if (user.role !== "admin" && order.customerId !== user.id) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  if (order.status !== "needs_update") {
+    res.status(400).json({ error: "Order info can only be updated when status is needs_update" }); return;
+  }
+
+  const updateData: any = { updatedAt: new Date() };
+  if (deliveryAddress) updateData.deliveryAddress = deliveryAddress;
+  if (deliveryLandmark !== undefined) updateData.deliveryLandmark = deliveryLandmark;
+  if (deliveryFloor !== undefined) updateData.deliveryFloor = deliveryFloor;
+  if (deliveryInstructions !== undefined) updateData.deliveryInstructions = deliveryInstructions;
+  if (deliveryPhone) updateData.deliveryPhone = deliveryPhone;
+
+  // Transition back to awaiting_customer_confirmation so driver can re-confirm
+  updateData.status = "awaiting_customer_confirmation";
+
+  const [updated] = await db.update(ordersTable).set(updateData).where(eq(ordersTable.id, id)).returning();
+  await addStatusHistory(id, "awaiting_customer_confirmation", "Infos mises à jour par le client — reconfirmation requise", `customer:${user.id}`);
+
+  // Notify driver
+  if (order.driverId) {
+    await createNotification({
+      userId: order.driverId,
+      type: "order_updated",
+      title: "Infos mises à jour",
+      message: `Le client a mis à jour ses infos pour la commande ${order.orderNumber}. Veuillez reconfirmer.`,
+      relatedOrderId: id,
+    });
+  }
+
+  const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, order.restaurantId));
+  res.json({ ...formatOrder(updated), restaurantName: restaurant?.name ?? "", driverName: null });
+});
+
+// Admin: trigger manual dispatch or re-dispatch
+router.post("/orders/:orderId/dispatch", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId, 10);
+  const result = await dispatchOrder(id);
+  res.json({ success: result.dispatched, candidates: result.candidates, message: result.dispatched ? `${result.candidates} livreur(s) notifié(s)` : "Aucun livreur disponible" });
 });
 
 router.get("/orders/:orderId/qr", authenticate, async (req, res): Promise<void> => {

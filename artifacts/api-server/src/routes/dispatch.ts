@@ -4,6 +4,7 @@ import { ordersTable, dispatchAttemptsTable, driverProfilesTable, usersTable, or
 import { eq, and, desc } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
 import { createNotification } from "../lib/notifications";
+import { lockDriverAssignment, retryPendingDispatch } from "../lib/dispatch-engine";
 
 const router = Router();
 
@@ -101,8 +102,10 @@ router.post("/driver/missions/:orderId/accept", authenticate, requireRole("drive
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId));
   if (!order) { res.status(404).json({ error: "Order not found" }); return; }
 
-  if (order.driverId && order.driverId !== user.id) {
-    res.status(409).json({ error: "Order already assigned" }); return;
+  // Use atomic lock to prevent race conditions (first driver wins)
+  const locked = await lockDriverAssignment(orderId, user.id);
+  if (!locked) {
+    res.status(409).json({ error: "Mission déjà prise par un autre livreur" }); return;
   }
 
   const [updated] = await db.update(ordersTable)
@@ -110,10 +113,8 @@ router.post("/driver/missions/:orderId/accept", authenticate, requireRole("drive
     .where(eq(ordersTable.id, orderId))
     .returning();
 
-  await addStatusHistory(orderId, "driver_assigned", "Livreur a accepté la mission", `driver:${user.id}`);
+  await addStatusHistory(orderId, "driver_assigned", `Livreur ${user.name} a accepté la mission`, `driver:${user.id}`);
   await addStatusHistory(orderId, "awaiting_customer_confirmation", "En attente de confirmation client", `driver:${user.id}`);
-
-  await db.insert(dispatchAttemptsTable).values({ orderId, driverId: user.id, result: "accepted" });
 
   await createNotification({
     userId: order.customerId,
@@ -297,6 +298,12 @@ router.get("/driver/history", authenticate, requireRole("driver"), async (req, r
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
   })));
+});
+
+// Admin: retry dispatch for all pending orders
+router.post("/dispatch/retry-all", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const retried = await retryPendingDispatch();
+  res.json({ success: true, retried, message: `${retried} commande(s) re-dispatchée(s)` });
 });
 
 router.get("/driver/stats", authenticate, requireRole("driver"), async (req, res): Promise<void> => {
