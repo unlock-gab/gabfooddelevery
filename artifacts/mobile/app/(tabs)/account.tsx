@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
-import React from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -92,10 +92,13 @@ function MenuItem({
 }
 
 function DriverEarningsCard({ colors }: { colors: any }) {
-  const { data: stats, isLoading } = useGetDriverStats({
-    query: { staleTime: 60000 },
+  const { data: stats, isLoading, refetch } = useGetDriverStats({
+    query: { staleTime: 0, refetchOnWindowFocus: true, refetchOnMount: true },
   });
   const st = stats as any;
+
+  // Refetch every time the driver opens the Compte tab
+  useFocusEffect(useCallback(() => { refetch(); }, []));
 
   return (
     <View style={[s.earningsCard, { backgroundColor: colors.primary }]}>

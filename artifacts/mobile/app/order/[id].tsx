@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useGetOrder } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { formatDA, formatDate, getStatusLabel, getStatusColor } from "@/utils/format";
 import { useAuth } from "@/context/AuthContext";
 
@@ -53,6 +54,7 @@ export default function OrderTrackingScreen() {
   const orderId = Number(id);
   const prevStatus = useRef<string>("");
   const [actionLoading, setActionLoading] = useState(false);
+  const qc = useQueryClient();
 
   const { data: order, isLoading, refetch } = useGetOrder(orderId, {
     query: { refetchInterval: 3000 },
@@ -87,6 +89,10 @@ export default function OrderTrackingScreen() {
       if (res.ok) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         refetch();
+        // After delivery, invalidate driver stats so the Compte tab shows updated earnings immediately
+        if (path.includes("/driver/deliver/")) {
+          qc.invalidateQueries({ queryKey: ["/api/driver/stats"] });
+        }
       } else {
         const err = await res.json();
         Alert.alert("Erreur", err.error ?? "Action impossible");
