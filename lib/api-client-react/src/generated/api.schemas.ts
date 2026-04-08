@@ -36,6 +36,8 @@ export interface RegisterBody {
   role: RegisterBodyRole;
   /** @nullable */
   cityId?: number | null;
+  /** @nullable */
+  zoneId?: number | null;
 }
 
 export interface LoginBody {

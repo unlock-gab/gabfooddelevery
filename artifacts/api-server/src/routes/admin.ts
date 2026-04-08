@@ -5,6 +5,8 @@ import {
   ordersTable, fraudFlagsTable, platformSettingsTable, paymentsTable, ratingsTable,
   orderStatusHistoryTable, qrDeliveryTokensTable, promoCodesTable, promoUsageTable,
   disputesTable, dispatchAttemptsTable, notificationsTable,
+  deliveryConfirmationsTable, menuCategoriesTable, productsTable,
+  addressesTable,
 } from "@workspace/db";
 import { createNotification } from "../lib/notifications";
 import { eq, and, count, sql, sum, avg, desc } from "drizzle-orm";
@@ -319,22 +321,23 @@ router.delete("/drivers/:driverId", authenticate, requireRole("admin"), async (r
   const userId = profile.userId;
 
   try {
-    // 1. Dissocier les commandes (conserver l'historique, mettre driver_id à NULL)
+    // 1. Dissocier les commandes (conserver l'historique)
     await db.update(ordersTable).set({ driverId: null }).where(eq(ordersTable.driverId, userId));
-
-    // 2. Supprimer les tentatives de dispatch
+    // 2. Dissocier les confirmations de livraison
+    await db.update(deliveryConfirmationsTable).set({ driverId: null }).where(eq(deliveryConfirmationsTable.driverId, userId));
+    // 3. Nullifier les références dans disputes
+    await db.update(disputesTable).set({ assignedTo: null }).where(eq(disputesTable.assignedTo, userId));
+    // 4. Nullifier resolved_by dans fraud_flags
+    await db.update(fraudFlagsTable).set({ resolvedBy: null }).where(eq(fraudFlagsTable.resolvedBy, userId));
+    // 5. Supprimer les tentatives de dispatch
     await db.delete(dispatchAttemptsTable).where(eq(dispatchAttemptsTable.driverId, userId));
-
-    // 3. Supprimer les notifications
+    // 6. Supprimer les notifications
     await db.delete(notificationsTable).where(eq(notificationsTable.userId, userId));
-
-    // 4. Supprimer les signalements de fraude
+    // 7. Supprimer les signalements de fraude liés à ce user
     await db.delete(fraudFlagsTable).where(eq(fraudFlagsTable.userId, userId));
-
-    // 5. Supprimer le profil livreur
+    // 8. Supprimer le profil livreur
     await db.delete(driverProfilesTable).where(eq(driverProfilesTable.id, id));
-
-    // 6. Supprimer l'utilisateur
+    // 9. Supprimer l'utilisateur
     await db.delete(usersTable).where(eq(usersTable.id, userId));
 
     res.json({ success: true });
@@ -342,6 +345,22 @@ router.delete("/drivers/:driverId", authenticate, requireRole("admin"), async (r
     console.error("Driver delete error:", err);
     res.status(500).json({ error: "Impossible de supprimer ce livreur : " + (err.message ?? "erreur interne") });
   }
+});
+
+// Update driver name/phone
+router.patch("/drivers/:driverId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId, 10);
+  const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.id, id));
+  if (!profile) { res.status(404).json({ error: "Not found" }); return; }
+  const { name, phone } = req.body;
+  const updates: any = {};
+  if (name !== undefined) updates.name = name;
+  if (phone !== undefined) updates.phone = phone;
+  if (Object.keys(updates).length > 0) {
+    await db.update(usersTable).set(updates).where(eq(usersTable.id, profile.userId));
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, profile.userId));
+  res.json({ id: profile.id, userId: profile.userId, name: user?.name ?? "", email: user?.email ?? "", phone: user?.phone ?? null, status: profile.status, isOnline: profile.isOnline, cityId: profile.cityId ?? null, avgRating: Number(profile.avgRating ?? 0), acceptanceRate: Number(profile.acceptanceRate ?? 0), totalDeliveries: profile.totalDeliveries, failedConfirmations: profile.failedConfirmations, createdAt: profile.createdAt.toISOString() });
 });
 
 // CUSTOMERS
@@ -390,6 +409,74 @@ router.get("/customers/:customerId", authenticate, requireRole("admin"), async (
   if (!result) { res.status(404).json({ error: "Not found" }); return; }
   const { profile, user } = result;
   res.json({ id: profile.id, userId: profile.userId, name: user?.name ?? "Unknown", email: user?.email ?? "", phone: user?.phone ?? null, riskScore: profile.riskScore, cancellationCount: profile.cancellationCount, unreachableCount: profile.unreachableCount, failedConfirmationCount: profile.failedConfirmationCount, totalOrders: profile.totalOrders, isActive: user?.isActive ?? true, createdAt: profile.createdAt.toISOString() });
+});
+
+// Update customer name/phone
+router.patch("/customers/:customerId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.customerId) ? req.params.customerId[0] : req.params.customerId, 10);
+  const [result] = await db.select({ profile: customerProfilesTable, user: usersTable })
+    .from(customerProfilesTable)
+    .leftJoin(usersTable, eq(customerProfilesTable.userId, usersTable.id))
+    .where(eq(customerProfilesTable.id, id));
+  if (!result) { res.status(404).json({ error: "Not found" }); return; }
+  const { name, phone } = req.body;
+  const updates: any = {};
+  if (name !== undefined) updates.name = name;
+  if (phone !== undefined) updates.phone = phone;
+  if (Object.keys(updates).length > 0) {
+    await db.update(usersTable).set(updates).where(eq(usersTable.id, result.profile.userId));
+  }
+  const { profile, user } = result;
+  res.json({ id: profile.id, userId: profile.userId, name: updates.name ?? user?.name ?? "Unknown", email: user?.email ?? "", phone: updates.phone ?? user?.phone ?? null, riskScore: profile.riskScore, cancellationCount: profile.cancellationCount, unreachableCount: profile.unreachableCount, failedConfirmationCount: profile.failedConfirmationCount, totalOrders: profile.totalOrders, isActive: user?.isActive ?? true, createdAt: profile.createdAt.toISOString() });
+});
+
+// Delete customer
+router.delete("/customers/:customerId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.customerId) ? req.params.customerId[0] : req.params.customerId, 10);
+  const [result] = await db.select({ profile: customerProfilesTable })
+    .from(customerProfilesTable)
+    .where(eq(customerProfilesTable.id, id));
+  if (!result) { res.status(404).json({ error: "Not found" }); return; }
+  const userId = result.profile.userId;
+  try {
+    await db.update(ordersTable).set({ customerId: null }).where(eq(ordersTable.customerId, userId));
+    await db.update(disputesTable).set({ assignedTo: null }).where(eq(disputesTable.assignedTo, userId));
+    await db.delete(disputesTable).where(eq(disputesTable.reportedBy, userId));
+    await db.update(fraudFlagsTable).set({ resolvedBy: null }).where(eq(fraudFlagsTable.resolvedBy, userId));
+    await db.delete(promoUsageTable).where(eq(promoUsageTable.userId, userId));
+    await db.delete(notificationsTable).where(eq(notificationsTable.userId, userId));
+    await db.delete(fraudFlagsTable).where(eq(fraudFlagsTable.userId, userId));
+    await db.delete(ratingsTable).where(eq(ratingsTable.customerId, userId));
+    await db.delete(addressesTable).where(eq(addressesTable.userId, userId));
+    await db.delete(customerProfilesTable).where(eq(customerProfilesTable.id, id));
+    await db.delete(usersTable).where(eq(usersTable.id, userId));
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Customer delete error:", err);
+    res.status(500).json({ error: "Impossible de supprimer ce client : " + (err.message ?? "erreur interne") });
+  }
+});
+
+// Delete restaurant (admin)
+router.delete("/restaurants/:restaurantId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
+  const id = parseInt(Array.isArray(req.params.restaurantId) ? req.params.restaurantId[0] : req.params.restaurantId, 10);
+  const [restaurant] = await db.select().from(restaurantsTable).where(eq(restaurantsTable.id, id));
+  if (!restaurant) { res.status(404).json({ error: "Not found" }); return; }
+  try {
+    await db.update(ordersTable).set({ restaurantId: null } as any).where(eq(ordersTable.restaurantId, id));
+    await db.delete(ratingsTable).where(eq(ratingsTable.restaurantId, id));
+    const categories = await db.select().from(menuCategoriesTable).where(eq(menuCategoriesTable.restaurantId, id));
+    for (const cat of categories) {
+      await db.delete(productsTable).where(eq(productsTable.categoryId, cat.id));
+    }
+    await db.delete(menuCategoriesTable).where(eq(menuCategoriesTable.restaurantId, id));
+    await db.delete(restaurantsTable).where(eq(restaurantsTable.id, id));
+    await db.delete(usersTable).where(eq(usersTable.id, restaurant.userId));
+    res.json({ success: true });
+  } catch (err: any) {
+    console.error("Restaurant delete error:", err);
+    res.status(500).json({ error: "Impossible de supprimer ce restaurant : " + (err.message ?? "erreur interne") });
+  }
 });
 
 // PAYMENTS

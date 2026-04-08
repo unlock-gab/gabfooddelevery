@@ -7163,3 +7163,80 @@ export const useDeleteDriver = <TError = ErrorType<unknown>, TContext = unknown>
     ...mutationOptions,
   });
 };
+
+// --- Admin: Update/Delete Drivers ---
+export const updateDriver = async (driverId: number, data: { name?: string; phone?: string }, options?: RequestInit): Promise<Driver> =>
+  customFetch<Driver>(`/api/drivers/${driverId}`, { ...options, method: "PATCH", headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) }, body: JSON.stringify(data) });
+
+export const useUpdateDriver = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateDriver>>, TError, { driverId: number; data: { name?: string; phone?: string } }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<Awaited<ReturnType<typeof updateDriver>>, TError, { driverId: number; data: { name?: string; phone?: string } }, TContext> => {
+  const mutationKey = ["updateDriver"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  return useMutation({
+    mutationFn: ({ driverId, data }) => updateDriver(driverId, data, requestOptions),
+    ...mutationOptions,
+  });
+};
+
+// --- Admin: Update/Delete Customers ---
+export type CustomerUpdateBody = { name?: string; phone?: string };
+
+export const updateCustomer = async (customerId: number, data: CustomerUpdateBody, options?: RequestInit): Promise<Customer> =>
+  customFetch<Customer>(`/api/admin/customers/${customerId}`, { ...options, method: "PATCH", headers: { "Content-Type": "application/json", ...(options?.headers ?? {}) }, body: JSON.stringify(data) });
+
+export const useUpdateCustomer = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof updateCustomer>>, TError, { customerId: number; data: CustomerUpdateBody }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<Awaited<ReturnType<typeof updateCustomer>>, TError, { customerId: number; data: CustomerUpdateBody }, TContext> => {
+  const mutationKey = ["updateCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  return useMutation({
+    mutationFn: ({ customerId, data }) => updateCustomer(customerId, data, requestOptions),
+    ...mutationOptions,
+  });
+};
+
+export const deleteCustomer = async (customerId: number, options?: RequestInit): Promise<{ success: boolean }> =>
+  customFetch<{ success: boolean }>(`/api/admin/customers/${customerId}`, { ...options, method: "DELETE" });
+
+export const useDeleteCustomer = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteCustomer>>, TError, { customerId: number }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<Awaited<ReturnType<typeof deleteCustomer>>, TError, { customerId: number }, TContext> => {
+  const mutationKey = ["deleteCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  return useMutation({
+    mutationFn: ({ customerId }) => deleteCustomer(customerId, requestOptions),
+    ...mutationOptions,
+  });
+};
+
+// --- Admin: Delete Restaurant ---
+export const deleteRestaurant = async (restaurantId: number, options?: RequestInit): Promise<{ success: boolean }> =>
+  customFetch<{ success: boolean }>(`/api/admin/restaurants/${restaurantId}`, { ...options, method: "DELETE" });
+
+export const useDeleteRestaurant = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
+  mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteRestaurant>>, TError, { restaurantId: number }, TContext>;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<Awaited<ReturnType<typeof deleteRestaurant>>, TError, { restaurantId: number }, TContext> => {
+  const mutationKey = ["deleteRestaurant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation && "mutationKey" in options.mutation && options.mutation.mutationKey
+      ? options : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+  return useMutation({
+    mutationFn: ({ restaurantId }) => deleteRestaurant(restaurantId, requestOptions),
+    ...mutationOptions,
+  });
+};

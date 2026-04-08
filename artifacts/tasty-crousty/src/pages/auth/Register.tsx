@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useRegister, useListCities } from "@workspace/api-client-react";
+import { useRegister, useListCities, useListZones } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShoppingBag, Building2, Truck, UtensilsCrossed, ChevronRight, MapPin } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ShoppingBag, Building2, Truck, UtensilsCrossed, ChevronRight, MapPin, LayoutGrid } from "lucide-react";
 
 const registerSchema = z.object({
   name:     z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
@@ -24,6 +24,7 @@ const registerSchema = z.object({
   phone:    z.string().optional(),
   role:     z.enum(["customer", "restaurant", "driver"]),
   cityId:   z.number({ invalid_type_error: "Veuillez choisir une wilaya" }).nullable().optional(),
+  zoneId:   z.number().nullable().optional(),
 });
 
 type FormValues = z.infer<typeof registerSchema>;
@@ -36,6 +37,7 @@ const ROLE_CONFIG = {
     desc: "Accédez aux meilleurs restaurants d'Alger avec livraison synchronisée PrepLock™.",
     perks: ["Suivi de commande en temps réel", "PrepLock™ : repas toujours chaud", "Historique et récapitulatifs"],
     requireCity: true,
+    requireZone: false,
   },
   restaurant: {
     icon: Building2,
@@ -43,7 +45,8 @@ const ROLE_CONFIG = {
     headline: "Boostez votre activité",
     desc: "Dashboard professionnel avec statistiques en temps réel et gestion simplifiée.",
     perks: ["Tableau de bord opérationnel", "Stats chiffre d'affaires", "Gestion des menus et catégories"],
-    requireCity: false,
+    requireCity: true,
+    requireZone: true,
   },
   driver: {
     icon: Truck,
@@ -52,6 +55,7 @@ const ROLE_CONFIG = {
     desc: "Gérez vos missions depuis votre téléphone avec un système de dispatch équitable.",
     perks: ["Missions gérées en temps réel", "Dispatch transparent", "Gains quotidiens suivis"],
     requireCity: true,
+    requireZone: true,
   },
 };
 
@@ -67,12 +71,22 @@ export default function Register() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", password: "", phone: "", role: "customer", cityId: null },
+    defaultValues: { name: "", email: "", password: "", phone: "", role: "customer", cityId: null, zoneId: null },
   });
+
+  const selectedCityId = form.watch("cityId");
+  const roleConfig = ROLE_CONFIG[activeRole];
+  const showZone = roleConfig.requireZone && selectedCityId != null;
+
+  const { data: zones } = useListZones(
+    selectedCityId ?? 0,
+    { query: { enabled: showZone } }
+  );
+  const activeZones = (zones ?? []).filter((z: any) => z.isActive);
 
   const onSubmit = (values: FormValues) => {
     registerMutation.mutate(
-      { data: { ...values, cityId: values.cityId ?? null } },
+      { data: { ...values, cityId: values.cityId ?? null, zoneId: values.zoneId ?? null } },
       {
         onSuccess: (data) => {
           login(data.user, data.token);
@@ -88,7 +102,6 @@ export default function Register() {
     );
   };
 
-  const roleConfig = ROLE_CONFIG[activeRole];
   const RoleIcon = roleConfig.icon;
 
   return (
@@ -148,6 +161,7 @@ export default function Register() {
             <Tabs defaultValue="customer" onValueChange={(val) => {
               form.setValue("role", val as any);
               form.setValue("cityId", null);
+              form.setValue("zoneId", null);
               setActiveRole(val as any);
             }}>
               <TabsList className="grid w-full grid-cols-3 mb-6 h-11">
@@ -163,9 +177,15 @@ export default function Register() {
                   <FormField control={form.control} name="name"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="font-semibold text-sm">Nom complet</FormLabel>
+                        <FormLabel className="font-semibold text-sm">
+                          {activeRole === "restaurant" ? "Nom du restaurant" : "Nom complet"}
+                        </FormLabel>
                         <FormControl>
-                          <Input placeholder="Mohammed Amine" className="h-11" {...field} />
+                          <Input
+                            placeholder={activeRole === "restaurant" ? "Le Jardin du Goût" : "Mohammed Amine"}
+                            className="h-11"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -200,14 +220,57 @@ export default function Register() {
                     )}
                   />
 
-                  {/* Wilaya — uniquement client et livreur */}
-                  {roleConfig.requireCity && (
-                    <FormField control={form.control} name="cityId"
+                  {/* Wilaya — tous les rôles */}
+                  <FormField control={form.control} name="cityId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold text-sm flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-primary" />
+                          Wilaya
+                        </FormLabel>
+                        <Select
+                          value={field.value != null ? String(field.value) : ""}
+                          onValueChange={(val) => {
+                            field.onChange(val ? Number(val) : null);
+                            form.setValue("zoneId", null);
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="h-11">
+                              <SelectValue placeholder={
+                                activeCities.length === 0
+                                  ? "Aucune wilaya disponible pour l'instant"
+                                  : "Sélectionnez votre wilaya…"
+                              } />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {activeCities.length === 0 ? (
+                              <div className="py-4 text-center text-sm text-muted-foreground">Aucune wilaya disponible</div>
+                            ) : (
+                              activeCities.map((city: any) => (
+                                <SelectItem key={city.id} value={String(city.id)}>{city.name}</SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Seules les wilayas où TastyCrousty est disponible sont affichées.
+                        </p>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Zone — restaurant et livreur, si wilaya sélectionnée */}
+                  {showZone && (
+                    <FormField control={form.control} name="zoneId"
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="font-semibold text-sm flex items-center gap-1.5">
-                            <MapPin className="w-3.5 h-3.5 text-primary" />
-                            Wilaya
+                            <LayoutGrid className="w-3.5 h-3.5 text-primary" />
+                            Zone{activeRole === "driver" ? " de livraison préférée" : ""}
+                            <span className="text-muted-foreground font-normal ml-1">(optionnel)</span>
                           </FormLabel>
                           <Select
                             value={field.value != null ? String(field.value) : ""}
@@ -216,29 +279,35 @@ export default function Register() {
                             <FormControl>
                               <SelectTrigger className="h-11">
                                 <SelectValue placeholder={
-                                  activeCities.length === 0
-                                    ? "Aucune wilaya disponible pour l'instant"
-                                    : "Sélectionnez votre wilaya…"
+                                  activeZones.length === 0
+                                    ? "Aucune zone disponible"
+                                    : "Sélectionnez une zone…"
                                 } />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {activeCities.length === 0 ? (
-                                <div className="py-4 text-center text-sm text-muted-foreground">
-                                  Aucune wilaya disponible
-                                </div>
+                              {activeZones.length === 0 ? (
+                                <div className="py-4 text-center text-sm text-muted-foreground">Aucune zone pour cette wilaya</div>
                               ) : (
-                                activeCities.map((city: any) => (
-                                  <SelectItem key={city.id} value={String(city.id)}>
-                                    {city.name}
+                                activeZones.map((zone: any) => (
+                                  <SelectItem key={zone.id} value={String(zone.id)}>
+                                    {zone.name}
+                                    {zone.deliveryFee ? ` — ${Number(zone.deliveryFee).toLocaleString("fr-DZ")} DA` : ""}
                                   </SelectItem>
                                 ))
                               )}
                             </SelectContent>
                           </Select>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Seules les wilayas où TastyCrousty est disponible sont affichées.
-                          </p>
+                          {activeRole === "driver" && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Vous pourrez livrer dans toute la wilaya. La zone est votre préférence par défaut.
+                            </p>
+                          )}
+                          {activeRole === "restaurant" && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              La zone de votre restaurant permet d'optimiser la recherche clients.
+                            </p>
+                          )}
                           <FormMessage />
                         </FormItem>
                       )}

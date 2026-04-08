@@ -2,12 +2,16 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { useListCustomers, Customer } from "@workspace/api-client-react";
+import { useUpdateCustomer, useDeleteCustomer } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search, Eye, Users, RefreshCw, AlertTriangle, ShoppingBag,
-  XCircle, Phone,
+  Pencil, Trash2,
 } from "lucide-react";
 
 const RISK_COLORS: Record<string, string> = {
@@ -27,17 +31,62 @@ const FILTERS = [
 ];
 
 export function CustomersSection() {
+  const { toast } = useToast();
   const [riskFilter, setRiskFilter] = useState("");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Customer | null>(null);
+  const [editTarget, setEditTarget] = useState<Customer | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
 
   const { data: customers, isLoading, refetch } = useListCustomers(
     { riskLevel: riskFilter || undefined, search: search || undefined },
     { query: { refetchInterval: 30000 } }
   );
 
+  const updateCustomer = useUpdateCustomer();
+  const deleteCustomer = useDeleteCustomer();
+
   const list = customers ?? [];
   const highRiskCount = list.filter(c => c.riskScore === "high").length;
+
+  const openEdit = (c: Customer) => {
+    setEditTarget(c);
+    setEditName(c.name);
+    setEditPhone(c.phone ?? "");
+  };
+
+  const handleEdit = () => {
+    if (!editTarget) return;
+    updateCustomer.mutate(
+      { customerId: editTarget.id, data: { name: editName || undefined, phone: editPhone || undefined } },
+      {
+        onSuccess: () => {
+          toast({ title: "Client mis à jour" });
+          setEditTarget(null);
+          refetch();
+        },
+        onError: (e: any) => toast({ title: "Erreur", description: e?.message, variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteCustomer.mutate(
+      { customerId: deleteTarget.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Client supprimé" });
+          setDeleteTarget(null);
+          if (selected?.id === deleteTarget.id) setSelected(null);
+          refetch();
+        },
+        onError: (e: any) => toast({ title: "Erreur", description: e?.message, variant: "destructive" }),
+      }
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -145,9 +194,17 @@ export function CustomersSection() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setSelected(c)}>
-                      <Eye className="w-3 h-3" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" title="Voir" onClick={() => setSelected(c)}>
+                        <Eye className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Modifier" onClick={() => openEdit(c)}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50" title="Supprimer" onClick={() => setDeleteTarget(c)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -175,7 +232,6 @@ export function CustomersSection() {
                 </span>
               </div>
 
-              {/* Stats */}
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-slate-50 rounded-lg p-3 text-center">
                   <p className="text-xs text-slate-500">Total commandes</p>
@@ -225,10 +281,63 @@ export function CustomersSection() {
                   </div>
                 </div>
               )}
+
+              <Separator />
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setSelected(null); openEdit(selected); }}>
+                  <Pencil className="w-4 h-4 mr-2" /> Modifier
+                </Button>
+                <Button variant="destructive" className="flex-1" onClick={() => { setSelected(null); setDeleteTarget(selected); }}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+                </Button>
+              </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Edit dialog */}
+      <Dialog open={editTarget !== null} onOpenChange={open => !open && setEditTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Modifier le client</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Nom complet</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Nom du client" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Téléphone</Label>
+              <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="+213 XXX XXX XXX" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Annuler</Button>
+            <Button onClick={handleEdit} disabled={updateCustomer.isPending}>
+              {updateCustomer.isPending ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteTarget !== null} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Supprimer le client</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-600 py-2">
+            Êtes-vous sûr de vouloir supprimer <strong>{deleteTarget?.name}</strong> ? Cette action est irréversible et effacera toutes les données associées.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Annuler</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteCustomer.isPending}>
+              {deleteCustomer.isPending ? "Suppression…" : "Supprimer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

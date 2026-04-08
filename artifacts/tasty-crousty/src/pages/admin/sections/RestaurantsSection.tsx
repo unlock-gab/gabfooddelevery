@@ -1,18 +1,20 @@
 import React, { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
   useListRestaurants, useApproveRestaurant, useRejectRestaurant,
-  useToggleRestaurantOpen, Restaurant,
+  useToggleRestaurantOpen, useUpdateRestaurant, Restaurant,
 } from "@workspace/api-client-react";
+import { useDeleteRestaurant } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQueryClient } from "@tanstack/react-query";
 import {
-  Search, CheckCircle, XCircle, Eye, Store, Clock, ToggleLeft, ToggleRight, RefreshCw,
+  Search, CheckCircle, XCircle, Eye, Store, Clock, ToggleLeft, ToggleRight,
+  RefreshCw, Pencil, Trash2,
 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -34,10 +36,17 @@ const STATUS_FILTERS = [
 
 export function RestaurantsSection() {
   const { toast } = useToast();
-  const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState<Restaurant | null>(null);
+  const [editTarget, setEditTarget] = useState<Restaurant | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Restaurant | null>(null);
+
+  const [editName, setEditName] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDelay, setEditDelay] = useState("");
 
   const { data: restaurants, isLoading, refetch } = useListRestaurants(
     { status: statusFilter || undefined, search: search || undefined },
@@ -47,6 +56,8 @@ export function RestaurantsSection() {
   const approve = useApproveRestaurant();
   const reject = useRejectRestaurant();
   const toggle = useToggleRestaurantOpen();
+  const updateRestaurant = useUpdateRestaurant();
+  const deleteRestaurant = useDeleteRestaurant();
 
   const handleApprove = (restaurantId: number) => {
     approve.mutate({ restaurantId }, {
@@ -59,9 +70,56 @@ export function RestaurantsSection() {
     });
   };
   const handleToggle = (restaurantId: number) => {
-    toggle.mutate({ restaurantId }, {
-      onSuccess: () => { refetch(); },
-    });
+    toggle.mutate({ restaurantId }, { onSuccess: () => refetch() });
+  };
+
+  const openEdit = (r: Restaurant) => {
+    setEditTarget(r);
+    setEditName(r.name ?? "");
+    setEditAddress(r.address ?? "");
+    setEditCategory(r.category ?? "");
+    setEditDescription(r.description ?? "");
+    setEditDelay(r.estimatedDeliveryMinutes != null ? String(r.estimatedDeliveryMinutes) : "");
+  };
+
+  const handleEdit = () => {
+    if (!editTarget) return;
+    updateRestaurant.mutate(
+      {
+        restaurantId: editTarget.id,
+        data: {
+          name: editName || undefined,
+          address: editAddress || undefined,
+          category: editCategory || undefined,
+          description: editDescription || undefined,
+          estimatedPrepTime: editDelay ? Number(editDelay) : undefined,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Restaurant mis à jour" });
+          setEditTarget(null);
+          refetch();
+        },
+        onError: (e: any) => toast({ title: "Erreur", description: e?.message, variant: "destructive" }),
+      }
+    );
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    deleteRestaurant.mutate(
+      { restaurantId: deleteTarget.id },
+      {
+        onSuccess: () => {
+          toast({ title: "Restaurant supprimé" });
+          setDeleteTarget(null);
+          if (selected?.id === deleteTarget.id) setSelected(null);
+          refetch();
+        },
+        onError: (e: any) => toast({ title: "Erreur", description: e?.message, variant: "destructive" }),
+      }
+    );
   };
 
   const pendingCount = restaurants?.filter(r => r.status === "pending").length ?? 0;
@@ -81,20 +139,16 @@ export function RestaurantsSection() {
         </Button>
       </div>
 
-      {/* Pending alert */}
       {pendingCount > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3">
           <Store className="w-4 h-4 text-amber-600 shrink-0" />
           <p className="text-sm text-amber-800">
             <strong>{pendingCount} restaurant{pendingCount > 1 ? "s" : ""}</strong> en attente d'approbation — vérifiez et traitez rapidement.
           </p>
-          <Button size="sm" className="h-7 text-xs ml-auto" onClick={() => setStatusFilter("pending")}>
-            Voir
-          </Button>
+          <Button size="sm" className="h-7 text-xs ml-auto" onClick={() => setStatusFilter("pending")}>Voir</Button>
         </div>
       )}
 
-      {/* Filters */}
       <div className="flex items-center gap-2 flex-wrap">
         {STATUS_FILTERS.map(f => (
           <button
@@ -115,7 +169,6 @@ export function RestaurantsSection() {
         </div>
       </div>
 
-      {/* Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -168,9 +221,15 @@ export function RestaurantsSection() {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setSelected(r)}>
+                    <div className="flex items-center justify-end gap-1">
+                      <Button size="sm" variant="ghost" className="h-7 px-2" title="Voir" onClick={() => setSelected(r)}>
                         <Eye className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50" title="Modifier" onClick={() => openEdit(r)}>
+                        <Pencil className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-50" title="Supprimer" onClick={() => setDeleteTarget(r)}>
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                       {r.status === "pending" && (
                         <>
@@ -238,7 +297,7 @@ export function RestaurantsSection() {
               )}
 
               <Separator />
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {selected.status === "pending" && (
                   <>
                     <Button className="flex-1 bg-green-600 hover:bg-green-700" onClick={() => { handleApprove(selected.id); setSelected(null); }}>
@@ -254,11 +313,72 @@ export function RestaurantsSection() {
                     {selected.isOpen ? <><ToggleLeft className="w-4 h-4 mr-2" /> Fermer</> : <><ToggleRight className="w-4 h-4 mr-2" /> Ouvrir</>}
                   </Button>
                 )}
+                <Button variant="outline" className="flex-1" onClick={() => { setSelected(null); openEdit(selected); }}>
+                  <Pencil className="w-4 h-4 mr-2" /> Modifier
+                </Button>
+                <Button variant="destructive" className="flex-1" onClick={() => { setSelected(null); setDeleteTarget(selected); }}>
+                  <Trash2 className="w-4 h-4 mr-2" /> Supprimer
+                </Button>
               </div>
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Edit dialog */}
+      <Dialog open={editTarget !== null} onOpenChange={open => !open && setEditTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifier le restaurant</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Nom du restaurant</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Nom" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Adresse</Label>
+              <Input value={editAddress} onChange={e => setEditAddress(e.target.value)} placeholder="Adresse complète" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Catégorie</Label>
+              <Input value={editCategory} onChange={e => setEditCategory(e.target.value)} placeholder="Ex: Pizza, Algérien, Fast Food…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description</Label>
+              <Input value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Description courte" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Délai de livraison estimé (min)</Label>
+              <Input type="number" min={0} value={editDelay} onChange={e => setEditDelay(e.target.value)} placeholder="Ex: 30" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Annuler</Button>
+            <Button onClick={handleEdit} disabled={updateRestaurant.isPending}>
+              {updateRestaurant.isPending ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={deleteTarget !== null} onOpenChange={open => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Supprimer le restaurant</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-600 py-2">
+            Êtes-vous sûr de vouloir supprimer <strong>{deleteTarget?.name}</strong> ? Cette action est irréversible et supprimera le menu et toutes les données associées.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Annuler</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleteRestaurant.isPending}>
+              {deleteRestaurant.isPending ? "Suppression…" : "Supprimer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

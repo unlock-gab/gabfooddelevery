@@ -1,0 +1,255 @@
+Continue the existing Tasty Crousty project.
+
+Do not rebuild the platform from scratch.
+Extend the current geography, delivery zone, and dispatch structure to fully support **Wilaya d’Alger (DZ-16)** with all official communes as operational delivery zones.
+
+==================================================
+GOAL
+==================================================
+
+Add complete support for **Wilaya d’Alger** as the first full operational territory of the platform.
+
+Use:
+- **Wilaya = top geographic scope**
+- **Commune = primary delivery zone**
+- optional future support for sub-zones / neighborhoods inside each commune
+
+Important:
+- keep French as the default interface language
+- keep Arabic as secondary language
+- keep all pricing in DZD / DA
+
+==================================================
+GEOGRAPHIC MODEL TO APPLY
+==================================================
+
+Use this hierarchy:
+
+1. Wilaya
+2. Commune (main delivery zone)
+3. Optional sub-zone / neighborhood (future-ready only, not mandatory now)
+
+For the MVP:
+- drivers are restricted to **Wilaya d’Alger**
+- dispatch should primarily operate at the **commune zone level**
+- restaurants and customers should be linked to a commune
+- delivery fees and ETA can be configured per commune
+
+==================================================
+WILAYA TO ADD
+==================================================
+
+Add this wilaya:
+
+- nameFr: Alger
+- nameAr: الجزائر
+- code: DZ-16
+- isActive: true
+
+==================================================
+OFFICIAL COMMUNES / ZONES OF WILAYA D’ALGER
+==================================================
+
+Create all these communes as zones under Wilaya d’Alger.
+
+For each zone, store at least:
+- nameFr
+- nameAr
+- slug
+- wilayaCode = DZ-16
+- isActive = true
+- deliveryFeeDzd
+- averageEtaMinutes
+- sortOrder
+
+Use these communes:
+
+1. Aïn Benian — عين البنيان
+2. Aïn Taya — عين طاية
+3. Alger Centre — الجزائر الوسطى
+4. Baba Hassen — بابا حسن
+5. Bab El Oued — باب الواد
+6. Bab Ezzouar — باب الزوار
+7. Bachdjerrah — باش جراح
+8. Baraki — براقي
+9. Ben Aknoun — بن عكنون
+10. Beni Messous — بني مسوس
+11. Bir Mourad Rais — بئر مراد رايس
+12. Birkhadem — بئر خادم
+13. Birtouta — بئر توتة
+14. Bordj El Bahri — برج البحري
+15. Bordj El Kiffan — برج الكيفان
+16. Bologhine — بولوغين
+17. Bouzareah — بوزريعة
+18. Bourouba — بوروبة
+19. Casbah — القصبة
+20. Cheraga — الشراقة
+21. Djasr Kasentina — جسر قسنطينة
+22. Dar El Beida — الدار البيضاء
+23. Dely Ibrahim — دالي إبراهيم
+24. Douera — الدويرة
+25. Draria — الدرارية
+26. El Achour — العاشور
+27. El Biar — الأبيار
+28. El Harrach — الحراش
+29. El Madania — المدنية
+30. El Magharia — المقرية
+31. El Marsa — المرسى
+32. El Mouradia — المرادية
+33. Hammamet — الحمامات
+34. Hraoua — هراوة
+35. Hydra — حيدرة
+36. Hussein Dey — حسين داي
+37. Khraicia — خرايسية
+38. Kouba — القبة
+39. Les Eucalyptus — الكاليتوس
+40. Mahelma — المعالمة
+41. Mohammadia — المحمدية
+42. Mohamed Belouizdad — محمد بلوزداد
+43. Oued Koreiche — واد قريش
+44. Oued Smar — واد السمار
+45. Ouled Chebel — أولاد شبل
+46. Ouled Fayet — أولاد فايت
+47. Rahmania — الرحمانية
+48. Rais Hamidou — الرايس حميدو
+49. Reghaia — الرغاية
+50. Rouiba — الرويبة
+51. Saoula — السحاولة
+52. Sidi M’Hamed — سيدي امحمد
+53. Sidi Moussa — سيدي موسى
+54. Souidania — السويدانية
+55. Staoueli — اسطاوالي
+56. Tessala El Merdja — تسالة المرجة
+57. Zeralda — زرالدة
+
+==================================================
+DEFAULT BUSINESS CONFIGURATION
+==================================================
+
+For now, initialize realistic default values for each commune:
+- deliveryFeeDzd: between 200 and 500 DA depending on commune distance grouping
+- averageEtaMinutes: between 25 and 60
+- isActive: true
+
+Create reasonable default groupings such as:
+
+Near zones:
+- 200–250 DA
+- 25–35 min
+
+Medium zones:
+- 300–350 DA
+- 35–45 min
+
+Far zones:
+- 400–500 DA
+- 45–60 min
+
+Keep this editable later from admin.
+
+==================================================
+ADMIN FEATURES TO ADD / IMPROVE
+==================================================
+
+In admin, improve geography and zone management so admins can:
+- view Wilaya d’Alger
+- view all 57 communes
+- search zones
+- filter by active/inactive
+- edit delivery fee
+- edit ETA
+- activate/deactivate a commune
+- assign restaurants to one or multiple communes
+- assign drivers to preferred communes
+- see order activity by commune
+
+Add a clean admin table for communes with:
+- French name
+- Arabic name
+- slug
+- delivery fee
+- ETA
+- status
+- restaurants count
+- drivers count
+- orders count
+
+==================================================
+DISPATCH LOGIC TO SUPPORT THESE ZONES
+==================================================
+
+Dispatch must now support:
+- driver main wilaya = Alger
+- driver preferred communes = optional
+- driver current live commune = dynamic
+- order restaurant commune
+- customer commune
+
+Rules:
+- driver only receives orders from Wilaya d’Alger
+- dispatch prioritizes drivers currently near the restaurant commune
+- preferred commune is a preference, not a permanent hard lock
+- if a driver moves from Bab Ezzouar to Bordj El Kiffan, they can receive nearby Bordj El Kiffan missions
+- keep the 60-second accept/reject timer
+
+==================================================
+CUSTOMER / RESTAURANT ADDRESS SUPPORT
+==================================================
+
+Make sure:
+- restaurants can be assigned to a commune
+- customer saved addresses include commune selection
+- checkout requires commune selection
+- delivery fee calculation uses commune/zone logic
+- order summary shows subtotal, livraison, total in DA
+
+==================================================
+SEED DATA
+==================================================
+
+Add seed data for:
+- Wilaya d’Alger
+- all 57 communes
+- sample restaurants distributed across several communes
+- sample drivers assigned to Alger with preferred communes
+- sample addresses in different communes
+- sample orders across multiple communes
+
+==================================================
+SLUG RULES
+==================================================
+
+Generate clean slugs such as:
+- ain-benian
+- ain-taya
+- alger-centre
+- bab-ezzouar
+- bordj-el-kiffan
+- bir-mourad-rais
+- sidi-mhamed
+- tessala-el-merdja
+- etc.
+
+Use normalized slugs without accents if needed.
+
+==================================================
+IMPORTANT
+==================================================
+
+Do not create fake zones.
+Do not use random neighborhoods as primary official delivery zones.
+For the main operational geography of Wilaya d’Alger, use the 57 official communes first.
+
+Neighborhood-level subdivisions can be prepared later as optional sub-zones, but the base system must use the commune structure.
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+1. add Wilaya d’Alger properly
+2. add all 57 official communes as primary zones
+3. connect them to admin management
+4. connect them to customer addresses
+5. connect them to restaurant setup
+6. connect them to driver dispatch logic
+7. keep the system scalable for future sub-zones

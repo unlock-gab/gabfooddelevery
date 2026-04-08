@@ -1,0 +1,118 @@
+Refine the dispatch logic in the existing Tasty Crousty project.
+
+Do not rebuild the project.
+Improve the current smart dispatch behavior so it works more like a real delivery app.
+
+==================================================
+CORE DISPATCH RULE
+==================================================
+
+A driver should be restricted by **wilaya**, not permanently locked to only one zone.
+
+This means:
+- when a driver registers, they select their main wilaya
+- they may also have preferred zones
+- but during live operations, dispatch must primarily use the driver’s **current location inside that wilaya**
+
+Example:
+- if a driver registered in Alger wilaya
+- and originally selected Bab Ezzouar
+- but after completing a delivery they are now physically in Bordj El Kiffan
+- then they should be able to receive nearby orders from Bordj El Kiffan
+- they should NOT be limited forever to Bab Ezzouar only
+
+==================================================
+REQUIRED LOGIC
+==================================================
+
+Dispatch must work like this:
+
+1. First filter by wilaya
+- drivers should only receive orders from the same wilaya they belong to
+- do not send orders from other wilayas
+
+2. Then filter by current live location
+- use the driver’s current location / current zone
+- prioritize drivers who are currently near the restaurant
+- do not rely only on the zone selected at registration
+
+3. Preferred zones can still exist, but only as:
+- preference
+- default operational area
+- fallback logic
+not as a permanent hard lock
+
+==================================================
+DRIVER LOCATION MODEL
+==================================================
+
+Improve the driver system to support:
+- main wilaya
+- optional preferred zones
+- current live latitude / longitude
+- current detected zone
+- last location update timestamp
+- online/offline status
+- available/busy status
+
+==================================================
+DISPATCH FILTERING
+==================================================
+
+When a new order is created, dispatch only to drivers who are:
+- approved
+- online
+- available
+- in the same wilaya
+- currently near the restaurant based on live location
+- not already busy with another active order
+
+Prioritize using:
+- same current zone first
+- shortest distance to restaurant
+- best rating
+- best acceptance rate
+- lowest workload
+
+==================================================
+ZONE BEHAVIOR
+==================================================
+
+Important:
+- a driver can move between zones inside the same wilaya
+- if the driver changes area during live work, the visible missions should adapt to the new current zone
+- do not permanently restrict the driver to the original selected zone
+- use preferred zone only as a secondary preference, not a hard dispatch restriction
+
+==================================================
+60-SECOND TIMER
+==================================================
+
+Keep the existing 60-second accept/reject mission timer:
+- each driver has 60 seconds to accept or reject
+- if no response, mark timeout
+- first accepted driver wins
+- lock the order for all others
+
+==================================================
+ADMIN SETTINGS
+==================================================
+
+Prepare admin dispatch settings for:
+- dispatch radius in km
+- same wilaya enforcement
+- whether neighboring zones are allowed
+- timer duration
+- fallback retry logic
+- live location priority toggle
+
+==================================================
+OUTPUT REQUIREMENTS
+==================================================
+
+1. refactor dispatch logic to use wilaya + current live location
+2. keep zone preference as optional, not permanent hard lock
+3. allow drivers to receive orders from the zone where they currently are
+4. keep orders restricted to the same wilaya only
+5. preserve the 60-second accept/reject flow
+6. keep everything modular and scalable

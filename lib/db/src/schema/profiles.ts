@@ -2,7 +2,7 @@ import { pgTable, text, serial, timestamp, boolean, integer, numeric, pgEnum } f
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
-import { citiesTable } from "./cities";
+import { citiesTable, zonesTable } from "./cities";
 
 export const riskLevelEnum = pgEnum("risk_level", ["low", "medium", "high"]);
 export const driverAvailabilityEnum = pgEnum("driver_availability", ["available", "busy", "offline"]);
@@ -28,6 +28,11 @@ export const driverProfilesTable = pgTable("driver_profiles", {
   isOnline: boolean("is_online").notNull().default(false),
   availability: driverAvailabilityEnum("availability").notNull().default("offline"),
   cityId: integer("city_id").references(() => citiesTable.id),
+  preferredZoneId: integer("preferred_zone_id").references(() => zonesTable.id),
+  currentLat: numeric("current_lat", { precision: 10, scale: 6 }),
+  currentLng: numeric("current_lng", { precision: 10, scale: 6 }),
+  currentZoneId: integer("current_zone_id").references(() => zonesTable.id),
+  lastLocationAt: timestamp("last_location_at", { withTimezone: true }),
   avgRating: numeric("avg_rating", { precision: 3, scale: 2 }).default("0.00"),
   acceptanceRate: numeric("acceptance_rate", { precision: 5, scale: 2 }).default("0.00"),
   totalDeliveries: integer("total_deliveries").notNull().default(0),

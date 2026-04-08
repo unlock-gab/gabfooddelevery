@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -14,10 +16,11 @@ import {
   useSuspendDriver, useActivateDriver, useDeleteDriver,
   Driver,
 } from "@workspace/api-client-react";
+import { useUpdateDriver } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Search, CheckCircle, XCircle, Eye, Truck, RefreshCw,
-  Star, Activity, AlertTriangle, PauseCircle, PlayCircle, Trash2,
+  Star, Activity, AlertTriangle, PauseCircle, PlayCircle, Trash2, Pencil,
 } from "lucide-react";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -46,6 +49,9 @@ export function DriversSection() {
   const [search, setSearch]             = useState("");
   const [selected, setSelected]         = useState<Driver | null>(null);
   const [toDelete, setToDelete]         = useState<Driver | null>(null);
+  const [editTarget, setEditTarget]     = useState<Driver | null>(null);
+  const [editName, setEditName]         = useState("");
+  const [editPhone, setEditPhone]       = useState("");
 
   const f = FILTERS[filterIdx];
   const { data: drivers, isLoading, refetch } = useListDrivers(
@@ -58,6 +64,7 @@ export function DriversSection() {
   const suspend  = useSuspendDriver();
   const activate = useActivateDriver();
   const remove   = useDeleteDriver();
+  const updateDriver = useUpdateDriver();
 
   const act = (
     mutation: { mutate: Function },
@@ -83,8 +90,29 @@ export function DriversSection() {
         setToDelete(null);
         setSelected(null);
       },
-      onError: () => toast({ title: "Erreur lors de la suppression", variant: "destructive" }),
+      onError: (e: any) => toast({ title: "Erreur lors de la suppression", description: e?.message, variant: "destructive" }),
     });
+  };
+
+  const openEdit = (d: Driver) => {
+    setEditTarget(d);
+    setEditName(d.name ?? "");
+    setEditPhone(d.phone ?? "");
+  };
+
+  const handleEdit = () => {
+    if (!editTarget) return;
+    updateDriver.mutate(
+      { driverId: editTarget.id, data: { name: editName || undefined, phone: editPhone || undefined } },
+      {
+        onSuccess: () => {
+          toast({ title: "Livreur mis à jour" });
+          setEditTarget(null);
+          refetch();
+        },
+        onError: (e: any) => toast({ title: "Erreur", description: e?.message, variant: "destructive" }),
+      }
+    );
   };
 
   const list = search
@@ -214,6 +242,10 @@ export function DriversSection() {
                       <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => setSelected(d)} title="Voir détails">
                         <Eye className="w-3 h-3" />
                       </Button>
+                      {/* Edit */}
+                      <Button size="sm" variant="ghost" className="h-7 px-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50" onClick={() => openEdit(d)} title="Modifier">
+                        <Pencil className="w-3 h-3" />
+                      </Button>
                       {/* Approve / Reject — pending only */}
                       {d.status === "pending" && (
                         <>
@@ -336,6 +368,9 @@ export function DriversSection() {
                     <PlayCircle className="w-4 h-4 mr-2" /> Réactiver le compte
                   </Button>
                 )}
+                <Button variant="outline" className="w-full" onClick={() => { setSelected(null); openEdit(selected); }}>
+                  <Pencil className="w-4 h-4 mr-2" /> Modifier les informations
+                </Button>
                 <Button variant="destructive" className="w-full" onClick={() => { setToDelete(selected); setSelected(null); }}>
                   <Trash2 className="w-4 h-4 mr-2" /> Supprimer définitivement
                 </Button>
@@ -351,6 +386,31 @@ export function DriversSection() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ── Edit dialog ── */}
+      <Dialog open={editTarget !== null} onOpenChange={open => !open && setEditTarget(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Modifier le livreur</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Nom complet</Label>
+              <Input value={editName} onChange={e => setEditName(e.target.value)} placeholder="Nom du livreur" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Téléphone</Label>
+              <Input value={editPhone} onChange={e => setEditPhone(e.target.value)} placeholder="+213 XXX XXX XXX" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Annuler</Button>
+            <Button onClick={handleEdit} disabled={updateDriver.isPending}>
+              {updateDriver.isPending ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Delete confirmation dialog ── */}
       <AlertDialog open={toDelete !== null} onOpenChange={open => !open && setToDelete(null)}>
