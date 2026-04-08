@@ -7111,7 +7111,7 @@ export const useDeleteAddress = <
 // ─── Driver management (suspend / activate / delete) ────────────────────────
 
 export const suspendDriver = async (driverId: number, options?: RequestInit): Promise<Driver> =>
-  customFetch<Driver>(`/api/admin/drivers/${driverId}/suspend`, { ...options, method: "POST" });
+  customFetch<Driver>(`/api/drivers/${driverId}/suspend`, { ...options, method: "POST" });
 
 export const useSuspendDriver = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
   mutation?: UseMutationOptions<Awaited<ReturnType<typeof suspendDriver>>, TError, { driverId: number }, TContext>;
@@ -7129,7 +7129,7 @@ export const useSuspendDriver = <TError = ErrorType<unknown>, TContext = unknown
 };
 
 export const activateDriver = async (driverId: number, options?: RequestInit): Promise<Driver> =>
-  customFetch<Driver>(`/api/admin/drivers/${driverId}/activate`, { ...options, method: "POST" });
+  customFetch<Driver>(`/api/drivers/${driverId}/activate`, { ...options, method: "POST" });
 
 export const useActivateDriver = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
   mutation?: UseMutationOptions<Awaited<ReturnType<typeof activateDriver>>, TError, { driverId: number }, TContext>;
@@ -7147,7 +7147,7 @@ export const useActivateDriver = <TError = ErrorType<unknown>, TContext = unknow
 };
 
 export const deleteDriver = async (driverId: number, options?: RequestInit): Promise<{ success: boolean }> =>
-  customFetch<{ success: boolean }>(`/api/admin/drivers/${driverId}`, { ...options, method: "DELETE" });
+  customFetch<{ success: boolean }>(`/api/drivers/${driverId}`, { ...options, method: "DELETE" });
 
 export const useDeleteDriver = <TError = ErrorType<unknown>, TContext = unknown>(options?: {
   mutation?: UseMutationOptions<Awaited<ReturnType<typeof deleteDriver>>, TError, { driverId: number }, TContext>;
