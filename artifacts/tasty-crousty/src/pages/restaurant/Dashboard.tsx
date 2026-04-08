@@ -10,7 +10,7 @@ import {
   ChefHat, CheckCircle, Package, RefreshCw, PauseCircle, PlayCircle,
   Lock, Clock, TrendingUp, AlertTriangle, ShoppingBag, Truck,
   Star, Zap, Plus, List, BarChart2, Menu as MenuIcon, ArrowRight,
-  MapPin, Phone, LogOut, Utensils, XCircle, Settings,
+  MapPin, Phone, LogOut, Utensils, XCircle, Settings, Power, PowerOff,
 } from "lucide-react";
 import { NotificationBell } from "@/components/ui/NotificationBell";
 import { cn } from "@/lib/utils";
@@ -297,6 +297,7 @@ export default function RestaurantDashboard() {
   const [myRestaurant, setMyRestaurant] = useState<any>(null);
   const [stats, setStats] = useState<any>(null);
   const [pauseLoading, setPauseLoading] = useState(false);
+  const [openLoading, setOpenLoading] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   const authorized = !!user && user.role === "restaurant";
@@ -330,6 +331,21 @@ export default function RestaurantDashboard() {
       toast({ title: updated.isPaused ? "Restaurant mis en pause" : "Restaurant réouvert" });
     }
     setPauseLoading(false);
+  };
+
+  const handleToggleOpen = async () => {
+    if (!myRestaurant) return;
+    setOpenLoading(true);
+    const token = localStorage.getItem("tc_token");
+    const res = await fetch(`/api/restaurants/${myRestaurant.id}/toggle-open`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setMyRestaurant(updated);
+      toast({ title: updated.isOpen ? "✅ Restaurant ouvert — vous recevez des commandes" : "🔴 Restaurant fermé" });
+    }
+    setOpenLoading(false);
   };
 
   if (!authorized) { setLocation("/auth/login"); return null; }
@@ -493,21 +509,43 @@ export default function RestaurantDashboard() {
 
         {/* Bottom actions */}
         <div className="relative px-3 pb-4 pt-3 border-t border-white/10 space-y-2">
+          {/* Open / Close toggle — most important action */}
           <button
-            onClick={handleTogglePause}
-            disabled={pauseLoading}
+            onClick={handleToggleOpen}
+            disabled={openLoading}
             className={cn(
-              "w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all",
-              myRestaurant?.isPaused
-                ? "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
-                : "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
+              "w-full flex items-center justify-center gap-2.5 px-4 py-3 rounded-xl text-sm font-bold transition-all shadow-lg",
+              myRestaurant?.isOpen
+                ? "bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30"
+                : "bg-emerald-500 text-white hover:bg-emerald-400 border border-emerald-400"
             )}
           >
-            {myRestaurant?.isPaused
-              ? <><PlayCircle className="w-4 h-4" /> Réouvrir</>
-              : <><PauseCircle className="w-4 h-4" /> Mettre en pause</>
+            {openLoading
+              ? <span className="animate-pulse">...</span>
+              : myRestaurant?.isOpen
+                ? <><PowerOff className="w-4 h-4" /> Fermer le restaurant</>
+                : <><Power className="w-4 h-4" /> Ouvrir le restaurant</>
             }
           </button>
+
+          {/* Pause toggle — only when open */}
+          {myRestaurant?.isOpen && (
+            <button
+              onClick={handleTogglePause}
+              disabled={pauseLoading}
+              className={cn(
+                "w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-sm font-medium transition-all",
+                myRestaurant?.isPaused
+                  ? "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+                  : "bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
+              )}
+            >
+              {myRestaurant?.isPaused
+                ? <><PlayCircle className="w-4 h-4" /> Réouvrir</>
+                : <><PauseCircle className="w-4 h-4" /> Mettre en pause</>
+              }
+            </button>
+          )}
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] text-slate-500 truncate">{user.name}</span>
             <button
