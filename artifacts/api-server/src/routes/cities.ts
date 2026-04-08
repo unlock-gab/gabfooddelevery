@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { citiesTable, zonesTable } from "@workspace/db";
+import { citiesTable, zonesTable, restaurantsTable, customerProfilesTable, driverProfilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { authenticate, requireRole } from "../lib/auth";
 
@@ -47,8 +47,20 @@ router.patch("/cities/:cityId", authenticate, requireRole("admin"), async (req, 
 
 router.delete("/cities/:cityId", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
   const cityId = parseInt(Array.isArray(req.params.cityId) ? req.params.cityId[0] : req.params.cityId, 10);
-  await db.delete(citiesTable).where(eq(citiesTable.id, cityId));
-  res.sendStatus(204);
+  try {
+    // Nullify city references in related tables before deleting
+    await db.update(restaurantsTable).set({ cityId: null }).where(eq(restaurantsTable.cityId, cityId));
+    await db.update(customerProfilesTable).set({ cityId: null }).where(eq(customerProfilesTable.cityId, cityId));
+    await db.update(driverProfilesTable).set({ cityId: null }).where(eq(driverProfilesTable.cityId, cityId));
+    // Delete all zones for this city
+    await db.delete(zonesTable).where(eq(zonesTable.cityId, cityId));
+    // Delete the city
+    await db.delete(citiesTable).where(eq(citiesTable.id, cityId));
+    res.sendStatus(204);
+  } catch (err: any) {
+    console.error("Delete city error:", err);
+    res.status(500).json({ error: "Impossible de supprimer cette wilaya : " + (err.message ?? "erreur interne") });
+  }
 });
 
 router.get("/cities/:cityId/zones", async (req, res): Promise<void> => {
