@@ -1,9 +1,11 @@
 {
   "cli": {
-    "version": ">= 12.0.0"
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "preview": {
+      "channel": "preview",
       "android": {
         "buildType": "apk"
       },
@@ -12,6 +14,7 @@
       }
     },
     "production": {
+      "channel": "production",
       "android": {
         "buildType": "app-bundle"
       },
@@ -19,5 +22,8 @@
         "EXPO_PUBLIC_DOMAIN": "food.gab-digital.com"
       }
     }
+  },
+  "submit": {
+    "production": {}
   }
 }

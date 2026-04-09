@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { notificationsTable } from "@workspace/db";
+import { notificationsTable, usersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { authenticate } from "../lib/auth";
 
@@ -68,6 +68,21 @@ router.post("/notifications/read-all", authenticate, async (req, res): Promise<v
     .update(notificationsTable)
     .set({ isRead: true })
     .where(eq(notificationsTable.userId, user.id));
+  res.json({ success: true });
+});
+
+// Save / update push token
+router.post("/notifications/push-token", authenticate, async (req, res): Promise<void> => {
+  const user = (req as any).user;
+  const { token } = req.body;
+  if (!token || typeof token !== "string") {
+    res.status(400).json({ error: "token is required" });
+    return;
+  }
+  await db
+    .update(usersTable)
+    .set({ pushToken: token })
+    .where(eq(usersTable.id, user.id));
   res.json({ success: true });
 });
 
