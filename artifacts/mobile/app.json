@@ -22,7 +22,12 @@
     },
     "android": {
       "package": "com.unlockgab.fooddelivery",
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#F0A000"
@@ -53,8 +58,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "4e95ff75-7afa-4be0-b358-6bb9c83eca70"
       }
-    }
+    },
+    "owner": "spaceunlock"
   }
 }
