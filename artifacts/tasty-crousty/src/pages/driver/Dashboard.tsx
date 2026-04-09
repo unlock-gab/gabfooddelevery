@@ -244,7 +244,7 @@ export default function DriverDashboard() {
       <header className="bg-white border-b px-4 py-3 sticky top-0 z-10 shadow-sm">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div>
-            <h1 className="font-bold text-base text-primary">TastyCrousty — Livreur</h1>
+            <h1 className="font-bold text-base text-primary">food delivery — Livreur</h1>
             <p className="text-xs text-muted-foreground">{user.name}</p>
           </div>
           <div className="flex items-center gap-3">

@@ -217,7 +217,7 @@ export function OverviewSection({ onNavigate }: { dashboard?: any; onNavigate: (
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-black text-slate-900 tracking-tight">Centre de contrôle</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Plateforme Tasty Crousty — Algérie</p>
+          <p className="text-xs text-slate-400 mt-0.5">Plateforme food delivery — Algérie</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />

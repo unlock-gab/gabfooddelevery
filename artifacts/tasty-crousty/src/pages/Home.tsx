@@ -251,7 +251,7 @@ export default function Home() {
       <section className="py-20 bg-muted/30">
         <div className="container">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold mb-3">Pourquoi TastyCrousty ?</h2>
+            <h2 className="text-3xl font-bold mb-3">Pourquoi food delivery ?</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">Nous avons réinventé chaque étape de la livraison de repas pour l'Algérie.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-6">
@@ -292,7 +292,7 @@ export default function Home() {
         <div className="container">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-3">Rejoignez l'écosystème</h2>
-            <p className="text-muted-foreground">Restaurateurs, livreurs — développez votre activité avec TastyCrousty.</p>
+            <p className="text-muted-foreground">Restaurateurs, livreurs — développez votre activité avec food delivery.</p>
           </div>
           <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
             <div className="rounded-3xl bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-white p-8 flex flex-col justify-between min-h-[280px] relative overflow-hidden">
@@ -339,7 +339,7 @@ export default function Home() {
         <div className="container">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
             <div className="col-span-2 md:col-span-1">
-              <h3 className="font-extrabold text-xl text-white mb-3">TastyCrousty</h3>
+              <h3 className="font-extrabold text-xl text-white mb-3">food delivery</h3>
               <p className="text-sm leading-relaxed text-gray-500">
                 La première plateforme de livraison de repas en Algérie avec préparation synchronisée PrepLock™.
               </p>
@@ -368,7 +368,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-white/8 pt-6 flex flex-col md:flex-row justify-between items-center gap-2">
-            <p className="text-xs text-gray-600">© 2026 TastyCrousty. Tous droits réservés.</p>
+            <p className="text-xs text-gray-600">© 2026 food delivery. Tous droits réservés.</p>
             <p className="text-xs text-gray-600">Fait avec passion en Algérie 🇩🇿</p>
           </div>
         </div>

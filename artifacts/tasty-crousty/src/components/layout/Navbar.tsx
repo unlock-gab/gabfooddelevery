@@ -37,7 +37,7 @@ export function Navbar() {
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-sm">
               <UtensilsCrossed className="w-4.5 h-4.5 text-primary-foreground" strokeWidth={2.5} />
             </div>
-            <span className="font-extrabold text-lg text-foreground tracking-tight">TastyCrousty</span>
+            <span className="font-extrabold text-lg text-foreground tracking-tight">food delivery</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6">
             <NavLink href="/restaurants">Restaurants</NavLink>

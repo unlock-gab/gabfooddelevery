@@ -138,7 +138,7 @@ export default function AdminDashboard() {
               <span className="text-white font-bold text-sm">TC</span>
             </div>
             <div>
-              <div className="font-bold text-sm text-slate-900">TastyCrousty</div>
+              <div className="font-bold text-sm text-slate-900">food delivery</div>
               <div className="text-xs text-slate-400">Operations Center</div>
             </div>
           </div>

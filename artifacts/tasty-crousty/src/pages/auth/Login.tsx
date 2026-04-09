@@ -60,7 +60,7 @@ export default function Login() {
             <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center">
               <UtensilsCrossed className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
             </div>
-            <span className="font-extrabold text-xl">TastyCrousty</span>
+            <span className="font-extrabold text-xl">food delivery</span>
           </Link>
 
           <div className="my-auto">
@@ -105,7 +105,7 @@ export default function Login() {
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
               <UtensilsCrossed className="w-4 h-4 text-primary-foreground" strokeWidth={2.5} />
             </div>
-            <span className="font-extrabold text-base">TastyCrousty</span>
+            <span className="font-extrabold text-base">food delivery</span>
           </Link>
         </div>
 
@@ -113,7 +113,7 @@ export default function Login() {
           <div className="w-full max-w-md fade-in-up">
             <div className="mb-8">
               <h1 className="text-3xl font-extrabold tracking-tight mb-2">Bon retour !</h1>
-              <p className="text-muted-foreground">Connectez-vous à votre compte TastyCrousty</p>
+              <p className="text-muted-foreground">Connectez-vous à votre compte food delivery</p>
             </div>
 
             <Form {...form}>

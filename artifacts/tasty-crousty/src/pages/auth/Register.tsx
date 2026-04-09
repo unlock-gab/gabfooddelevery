@@ -121,7 +121,7 @@ export default function Register() {
             <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center">
               <UtensilsCrossed className="w-5 h-5 text-primary-foreground" strokeWidth={2.5} />
             </div>
-            <span className="font-extrabold text-xl">TastyCrousty</span>
+            <span className="font-extrabold text-xl">food delivery</span>
           </Link>
 
           <div className="my-auto transition-all duration-300">
@@ -141,7 +141,7 @@ export default function Register() {
             </div>
           </div>
 
-          <p className="text-white/30 text-xs">Algérie 🇩🇿 — TastyCrousty 2026</p>
+          <p className="text-white/30 text-xs">Algérie 🇩🇿 — food delivery 2026</p>
         </div>
       </div>
 
@@ -152,7 +152,7 @@ export default function Register() {
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
               <UtensilsCrossed className="w-4 h-4 text-primary-foreground" strokeWidth={2.5} />
             </div>
-            <span className="font-extrabold text-base">TastyCrousty</span>
+            <span className="font-extrabold text-base">food delivery</span>
           </Link>
         </div>
 
@@ -160,7 +160,7 @@ export default function Register() {
           <div className="w-full max-w-md fade-in-up">
             <div className="mb-7">
               <h1 className="text-3xl font-extrabold tracking-tight mb-2">Créez votre compte</h1>
-              <p className="text-muted-foreground">Rejoignez TastyCrousty dès maintenant — c'est gratuit.</p>
+              <p className="text-muted-foreground">Rejoignez food delivery dès maintenant — c'est gratuit.</p>
             </div>
 
             <Tabs defaultValue="customer" onValueChange={(val) => {
@@ -260,7 +260,7 @@ export default function Register() {
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Seules les wilayas où TastyCrousty est disponible sont affichées.
+                          Seules les wilayas où food delivery est disponible sont affichées.
                         </p>
                         <FormMessage />
                       </FormItem>
@@ -373,7 +373,7 @@ export default function Register() {
             </div>
 
             <p className="text-xs text-center text-muted-foreground mt-6">
-              En créant un compte, vous acceptez les conditions d'utilisation de TastyCrousty.
+              En créant un compte, vous acceptez les conditions d'utilisation de food delivery.
             </p>
           </div>
         </div>

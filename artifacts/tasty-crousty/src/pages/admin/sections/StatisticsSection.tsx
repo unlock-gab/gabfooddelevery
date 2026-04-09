@@ -124,7 +124,7 @@ export function StatisticsSection() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Statistiques</h1>
-          <p className="text-sm text-slate-500 mt-1">Vue complète de la plateforme TastyCrousty</p>
+          <p className="text-sm text-slate-500 mt-1">Vue complète de la plateforme food delivery</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => { refetch(); setRefetchKey(k => k + 1); }}>
           <RefreshCw className="w-4 h-4 mr-2" /> Actualiser

@@ -42,7 +42,7 @@ export function QRCodeDisplay({ token, orderNumber, orderId, isUsed }: QRCodeDis
             </div>
             <div className="mt-3 px-3 py-2 bg-amber-50 rounded-lg border border-amber-100 w-full">
               <p className="text-xs text-amber-700 text-center font-medium">
-                ⚡ PrepLock™ — Sécurisé par Tasty Crousty
+                ⚡ PrepLock™ — Sécurisé par food delivery
               </p>
             </div>
           </>
