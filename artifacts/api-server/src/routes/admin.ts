@@ -1070,11 +1070,14 @@ router.get("/admin/settings", authenticate, requireRole("admin"), async (_req, r
   const map: any = {};
   for (const s of settings) { map[s.key] = s.value; }
 
+  const restaurantRate = Number(map["platform_commission_rate"] ?? 12);
+  const driverRate = Number(map["driver_commission_rate"] ?? restaurantRate);
   res.json({
     dispatchRadiusKm: Number(map["dispatch_radius_km"] ?? 5),
     dispatchTimeoutSeconds: Number(map["dispatch_timeout_seconds"] ?? 60),
-    defaultDeliveryFee: Number(map["default_delivery_fee"] ?? 3),
-    platformCommissionRate: Number(map["platform_commission_rate"] ?? 10),
+    defaultDeliveryFee: Number(map["default_delivery_fee"] ?? 350),
+    platformCommissionRate: restaurantRate,
+    driverCommissionRate: driverRate,
     maxCancellationsBeforeFlag: Number(map["max_cancellations_before_flag"] ?? 3),
     maxUnreachableBeforeFlag: Number(map["max_unreachable_before_flag"] ?? 2),
     qrValidationEnabled: map["qr_validation_enabled"] === "true",
@@ -1083,11 +1086,12 @@ router.get("/admin/settings", authenticate, requireRole("admin"), async (_req, r
 });
 
 router.patch("/admin/settings", authenticate, requireRole("admin"), async (req, res): Promise<void> => {
-  const settingsMap: Record<string, any> = {
+  const settingsMap: Record<string, string> = {
     dispatchRadiusKm: "dispatch_radius_km",
     dispatchTimeoutSeconds: "dispatch_timeout_seconds",
     defaultDeliveryFee: "default_delivery_fee",
     platformCommissionRate: "platform_commission_rate",
+    driverCommissionRate: "driver_commission_rate",
     maxCancellationsBeforeFlag: "max_cancellations_before_flag",
     maxUnreachableBeforeFlag: "max_unreachable_before_flag",
     qrValidationEnabled: "qr_validation_enabled",
@@ -1106,11 +1110,14 @@ router.patch("/admin/settings", authenticate, requireRole("admin"), async (req, 
   const map: any = {};
   for (const s of settings) { map[s.key] = s.value; }
 
+  const restaurantRate = Number(map["platform_commission_rate"] ?? 12);
+  const driverRate = Number(map["driver_commission_rate"] ?? restaurantRate);
   res.json({
     dispatchRadiusKm: Number(map["dispatch_radius_km"] ?? 5),
     dispatchTimeoutSeconds: Number(map["dispatch_timeout_seconds"] ?? 60),
-    defaultDeliveryFee: Number(map["default_delivery_fee"] ?? 3),
-    platformCommissionRate: Number(map["platform_commission_rate"] ?? 10),
+    defaultDeliveryFee: Number(map["default_delivery_fee"] ?? 350),
+    platformCommissionRate: restaurantRate,
+    driverCommissionRate: driverRate,
     maxCancellationsBeforeFlag: Number(map["max_cancellations_before_flag"] ?? 3),
     maxUnreachableBeforeFlag: Number(map["max_unreachable_before_flag"] ?? 2),
     qrValidationEnabled: map["qr_validation_enabled"] === "true",
@@ -1544,7 +1551,15 @@ router.get("/admin/disputes/:disputeId", authenticate, requireRole("admin"), asy
 
 // COMMISSION - get all commission data
 router.get("/admin/commission", authenticate, requireRole("admin"), async (_req, res): Promise<void> => {
-  // Driver commissions: 12% of earningsTotal
+  // Load commission rates from DB settings
+  const settingsRows = await db.select().from(platformSettingsTable)
+    .where(sql`${platformSettingsTable.key} in ('platform_commission_rate','driver_commission_rate')`);
+  const smap: Record<string, string> = {};
+  for (const s of settingsRows) smap[s.key] = s.value;
+  const restaurantRate = Number(smap["platform_commission_rate"] ?? 12) / 100;
+  const driverRate = Number(smap["driver_commission_rate"] ?? (restaurantRate * 100)) / 100;
+
+  // Driver commissions
   const drivers = await db.select({
     profile: driverProfilesTable,
     name: usersTable.name,
@@ -1554,7 +1569,7 @@ router.get("/admin/commission", authenticate, requireRole("admin"), async (_req,
     .where(eq(driverProfilesTable.status, "approved"))
     .orderBy(desc(driverProfilesTable.earningsTotal));
 
-  // Restaurant commissions: 12% of delivered order subtotals since last reset
+  // Restaurant commissions: % of delivered order subtotals since last reset
   const restaurants = await db.select().from(restaurantsTable)
     .where(eq(restaurantsTable.status, "approved"));
 
@@ -1570,16 +1585,21 @@ router.get("/admin/commission", authenticate, requireRole("admin"), async (_req,
       .from(ordersTable)
       .where(and(...conditions));
     const revenue = Number(row?.total ?? 0);
-    return { id: r.id, name: r.name, revenue, commission: Math.round(revenue * 0.12), commissionResetAt: r.commissionResetAt };
+    // Use individual restaurant rate if set, otherwise fall back to platform rate
+    const rate = r.commissionRate ? Number(r.commissionRate) / 100 : restaurantRate;
+    return { id: r.id, name: r.name, revenue, commission: Math.round(revenue * rate), commissionRate: Math.round(rate * 100), commissionResetAt: r.commissionResetAt };
   }));
 
   res.json({
+    driverCommissionRate: Math.round(driverRate * 100),
+    restaurantCommissionRate: Math.round(restaurantRate * 100),
     drivers: drivers.map(d => ({
       id: d.profile.id,
       name: d.name,
       email: d.email,
       earningsTotal: Number(d.profile.earningsTotal ?? 0),
-      commission: Math.round(Number(d.profile.earningsTotal ?? 0) * 0.12),
+      commission: Math.round(Number(d.profile.earningsTotal ?? 0) * driverRate),
+      commissionRate: Math.round(driverRate * 100),
       totalDeliveries: d.profile.totalDeliveries,
     })),
     restaurants: restaurantCommissions,
