@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "TastyCrousty Mobile",
+    "name": "food delivery",
     "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "fooddelivery",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,12 +15,18 @@
     },
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.unlockgab.fooddelivery",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "TastyCrousty utilise votre position pour remplir automatiquement votre adresse de livraison."
+        "NSLocationWhenInUseUsageDescription": "food delivery utilise votre position pour remplir automatiquement votre adresse de livraison."
       }
     },
     "android": {
-      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"]
+      "package": "com.unlockgab.fooddelivery",
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#F0A000"
+      }
     },
     "web": {
       "favicon": "./assets/images/icon.png"
@@ -29,7 +35,7 @@
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://food.gab-digital.com"
         }
       ],
       "expo-font",
@@ -37,13 +43,18 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "TastyCrousty utilise votre position pour remplir automatiquement votre adresse de livraison."
+          "locationWhenInUsePermission": "food delivery utilise votre position pour remplir automatiquement votre adresse de livraison."
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
     }
   }
 }

@@ -17,7 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN || 'food.gab-digital.com'}`);
 
 SplashScreen.preventAutoHideAsync();
 
