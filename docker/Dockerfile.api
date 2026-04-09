@@ -1,14 +1,12 @@
-FROM node:24-alpine AS builder
+FROM node:24 AS builder
 
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN npm install -g pnpm@10.26.1
 
 WORKDIR /app
 
-# Copy full monorepo (pnpm workspace needs all package.json files)
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY lib/ ./lib/
 COPY artifacts/api-server/ ./artifacts/api-server/
-# Stub other artifacts so pnpm workspace resolution doesn't fail
 COPY artifacts/tasty-crousty/package.json ./artifacts/tasty-crousty/package.json
 COPY artifacts/mobile/package.json ./artifacts/mobile/package.json
 COPY artifacts/mockup-sandbox/package.json ./artifacts/mockup-sandbox/package.json
@@ -17,8 +15,7 @@ RUN pnpm install --frozen-lockfile
 
 RUN pnpm --filter @workspace/api-server run build
 
-# ── Minimal production image ───────────────────────────────────────────
-FROM node:24-alpine
+FROM node:24-slim
 
 WORKDIR /app
 

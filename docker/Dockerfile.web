@@ -1,6 +1,6 @@
-FROM node:24-alpine AS builder
+FROM node:24 AS builder
 
-RUN corepack enable && corepack prepare pnpm@10 --activate
+RUN npm install -g pnpm@10.26.1
 
 WORKDIR /app
 
@@ -19,13 +19,11 @@ ENV NODE_ENV=production
 
 RUN pnpm --filter @workspace/tasty-crousty run build
 
-# ── Nginx production image ─────────────────────────────────────────────
 FROM nginx:1.27-alpine
 
-COPY docker/nginx.conf /etc/nginx/conf.d/nginx.conf.template
+COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /app/artifacts/tasty-crousty/dist/public /usr/share/nginx/html
 
 EXPOSE 80
 
-# Replace API_HOST placeholder with environment variable at container start
-CMD ["/bin/sh", "-c", "envsubst '$API_HOST' < /etc/nginx/conf.d/nginx.conf.template > /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["nginx", "-g", "daemon off;"]
